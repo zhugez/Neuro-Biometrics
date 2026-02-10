@@ -73,7 +73,7 @@ If you use this code, please cite our paper:
 ```bibtex
 @article{zhugez2026neurobiometrics,
   title={Neuro-Biometrics: Efficient EEG Denoising via State Space Models},
-  author={Ly Ngoc Vu and Sentra Labs Team},
+  author={Ly Ngoc Vu},
   year={2026}
 }
 ```
