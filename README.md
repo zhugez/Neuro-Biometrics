@@ -2,7 +2,6 @@
 
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-ee4c2c.svg)](https://pytorch.org/)
 [![Status](https://img.shields.io/badge/Status-Research%20Preview-blue)](https://github.com/zhugez/Neuro-Biometrics)
-[![Conference](https://img.shields.io/badge/YSC-2025-green)](https://ysc.com.vn)
 
 **Robust EEG Denoising and Biometric Verification using State Space Models (Mamba) and Metric Learning.**
 
@@ -12,7 +11,7 @@
 
 ## 📖 Introduction
 
-This repository contains the official implementation for the paper **"Enhancing EEG-based Biometrics with Mamba-augmented Denoising Autoencoders"** (YSC 2025).
+This repository contains the official implementation for the paper **"Enhancing EEG-based Biometrics with Mamba-augmented Denoising Autoencoders"**.
 
 We propose a novel two-stage architecture:
 1.  **Denoising Stage:** A WaveNet-based autoencoder augmented with a **Mamba Block** (State Space Model) to capture long-range temporal dependencies in EEG signals efficiently.
@@ -69,13 +68,12 @@ python backup_full.py
 
 ## 📜 Citation
 
-If you use this code, please cite our YSC 2025 paper:
+If you use this code, please cite our paper:
 
 ```bibtex
-@inproceedings{zhugez2026neurobiometrics,
+@article{zhugez2026neurobiometrics,
   title={Neuro-Biometrics: Efficient EEG Denoising via State Space Models},
   author={Ly Ngoc Vu and Sentra Labs Team},
-  booktitle={Youth Science Conference (YSC)},
   year={2026}
 }
 ```
