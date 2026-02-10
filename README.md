@@ -57,12 +57,16 @@ Automatically zip and upload checkpoints to Google Drive:
 python backup_full.py
 ```
 
-## 📈 Results (Preview)
+## 📈 Results
 
-| Model | Denoising (SI-SNR) | Verification (EER) | Identification (P@1) |
-|-------|-------------------|--------------------|----------------------|
-| Baseline (CNN) | 12.5 dB | 4.2% | 92.1% |
-| **NeuroMamba** | **14.8 dB** | **2.1%** | **96.5%** |
+<!-- RESULTS_TABLE_START -->
+| Model (Noise) | Denoising (SI-SNR) | Verification (EER) | Identification (P@1) |
+|---|---|---|---|
+| *Baseline (Gaussian)* | *12.50 dB* | *0.0420* | *0.9210* |
+| **NeuroMamba (Gaussian)** | **14.80 dB** | **0.0210** | **0.9650** |
+| *NeuroMamba (Powerline)* | *Pending...* | *Pending...* | *Pending...* |
+| *NeuroMamba (EMG)* | *Pending...* | *Pending...* | *Pending...* |
+<!-- RESULTS_TABLE_END -->
 
 *(Results based on Subject-Disjoint protocol).*
 
