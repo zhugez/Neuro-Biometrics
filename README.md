@@ -1,7 +1,7 @@
-# NeuroMamba-Biometrics 🧠⚡️
+# Neuro-Biometrics 🧠⚡️
 
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-ee4c2c.svg)](https://pytorch.org/)
-[![Status](https://img.shields.io/badge/Status-Research%20Preview-blue)](https://github.com/zhugez/NeuroMamba-Biometrics)
+[![Status](https://img.shields.io/badge/Status-Research%20Preview-blue)](https://github.com/zhugez/Neuro-Biometrics)
 [![Conference](https://img.shields.io/badge/YSC-2025-green)](https://ysc.com.vn)
 
 **Robust EEG Denoising and Biometric Verification using State Space Models (Mamba) and Metric Learning.**
@@ -30,8 +30,8 @@ We propose a novel two-stage architecture:
 
 ```bash
 # Clone the repository
-git clone https://github.com/zhugez/NeuroMamba-Biometrics.git
-cd NeuroMamba-Biometrics
+git clone https://github.com/zhugez/Neuro-Biometrics.git
+cd Neuro-Biometrics
 
 # Install dependencies
 pip install -r requirements.txt
@@ -72,8 +72,8 @@ python backup_full.py
 If you use this code, please cite our YSC 2025 paper:
 
 ```bibtex
-@inproceedings{zhugez2026neuromamba,
-  title={NeuroMamba-Biometrics: Efficient EEG Denoising via State Space Models},
+@inproceedings{zhugez2026neurobiometrics,
+  title={Neuro-Biometrics: Efficient EEG Denoising via State Space Models},
   author={Ly Ngoc Vu and Sentra Labs Team},
   booktitle={Youth Science Conference (YSC)},
   year={2026}
