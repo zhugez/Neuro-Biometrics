@@ -1,0 +1,28 @@
+# Data
+dataset/
+*.zip
+*.tar.gz
+
+# Weights (Heavy)
+weights/
+*.pth
+*.pt
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# Logs (Ignore large raw logs, keep summaries)
+*.log
+
+# System
+.DS_Store
+Thumbs.db
+
+# Keep Results and Configs
+!results/
+!output*.json
+!*.png

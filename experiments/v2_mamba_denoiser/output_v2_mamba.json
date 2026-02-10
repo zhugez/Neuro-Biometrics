@@ -1,0 +1,1039 @@
+{
+  "experiment": "Multi-Seed Comprehensive Evaluation",
+  "config": {
+    "epochs_stage1": 20,
+    "epochs_stage2": 10,
+    "batch_size": 64,
+    "holdout_subjects": [
+      2,
+      5,
+      7,
+      12
+    ]
+  },
+  "results": [
+    {
+      "noise_type": "gaussian",
+      "model_name": "ResNet34_MultiSim",
+      "stats": {
+        "p@1": "1.0000 \u00b1 0.0000",
+        "p@1_mean": 1.0,
+        "p@1_std": 0.0,
+        "p@5": "1.0000 \u00b1 0.0000",
+        "p@5_mean": 1.0,
+        "p@5_std": 0.0,
+        "si_snr": "7.9717 \u00b1 4.5793",
+        "si_snr_mean": 7.971720933914185,
+        "si_snr_std": 4.579293835516006,
+        "accuracy": "1.0000 \u00b1 0.0000",
+        "accuracy_mean": 1.0,
+        "accuracy_std": 0.0,
+        "eer": "0.0000 \u00b1 0.0000",
+        "eer_mean": 0.0,
+        "eer_std": 0.0,
+        "latency": "80.8887 \u00b1 16.9673",
+        "latency_mean": 80.88866869608562,
+        "latency_std": 16.96731857338322,
+        "tar": "0.6667 \u00b1 0.4714",
+        "tar_mean": 0.6666666666666666,
+        "tar_std": 0.4714045207910317,
+        "trr": "0.0000 \u00b1 0.0000",
+        "trr_mean": 0.0,
+        "trr_std": 0.0,
+        "far": "1.0000 \u00b1 0.0000",
+        "far_mean": 1.0,
+        "far_std": 0.0,
+        "frr": "0.3333 \u00b1 0.4714",
+        "frr_mean": 0.3333333333333333,
+        "frr_std": 0.4714045207910317,
+        "auroc": "nan \u00b1 nan",
+        "auroc_mean": NaN,
+        "auroc_std": NaN,
+        "aupr": "0.0000 \u00b1 0.0000",
+        "aupr_mean": 0.0,
+        "aupr_std": 0.0
+      },
+      "best_run": {
+        "seed": 0,
+        "test": {
+          "p@1": 1.0,
+          "p@5": 1.0,
+          "si_snr": 13.904715538024902,
+          "accuracy": 1.0,
+          "cmc": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "roc": {
+            "fpr": [
+              0.0,
+              1.0
+            ],
+            "tpr": [
+              0.0,
+              1.0
+            ]
+          },
+          "det": {
+            "fpr": [
+              0.0,
+              1.0
+            ],
+            "fnr": [
+              1.0,
+              0.0
+            ]
+          },
+          "eer": 0.0,
+          "latency": 69.14925575256348,
+          "params": 21737604,
+          "robustness": {
+            "20": {
+              "p@1": 1.0,
+              "delta_sisnr": -42.60137176513672
+            }
+          }
+        },
+        "novelty": {
+          "tar": 1.0,
+          "trr": 0,
+          "far": 1,
+          "frr": 0.0,
+          "auroc": NaN,
+          "aupr": 0.0,
+          "threshold": 0.008503534831106663,
+          "known_samples": 1,
+          "unknown_samples": 0
+        }
+      }
+    },
+    {
+      "noise_type": "gaussian",
+      "model_name": "ResNet18_MultiSim",
+      "stats": {
+        "p@1": "1.0000 \u00b1 0.0000",
+        "p@1_mean": 1.0,
+        "p@1_std": 0.0,
+        "p@5": "1.0000 \u00b1 0.0000",
+        "p@5_mean": 1.0,
+        "p@5_std": 0.0,
+        "si_snr": "7.9721 \u00b1 4.5619",
+        "si_snr_mean": 7.972067991892497,
+        "si_snr_std": 4.561873147550865,
+        "accuracy": "1.0000 \u00b1 0.0000",
+        "accuracy_mean": 1.0,
+        "accuracy_std": 0.0,
+        "eer": "0.0000 \u00b1 0.0000",
+        "eer_mean": 0.0,
+        "eer_std": 0.0,
+        "latency": "67.0181 \u00b1 2.6574",
+        "latency_mean": 67.0181115468343,
+        "latency_std": 2.6573598513730152,
+        "tar": "0.6667 \u00b1 0.4714",
+        "tar_mean": 0.6666666666666666,
+        "tar_std": 0.4714045207910317,
+        "trr": "0.0000 \u00b1 0.0000",
+        "trr_mean": 0.0,
+        "trr_std": 0.0,
+        "far": "1.0000 \u00b1 0.0000",
+        "far_mean": 1.0,
+        "far_std": 0.0,
+        "frr": "0.3333 \u00b1 0.4714",
+        "frr_mean": 0.3333333333333333,
+        "frr_std": 0.4714045207910317,
+        "auroc": "nan \u00b1 nan",
+        "auroc_mean": NaN,
+        "auroc_std": NaN,
+        "aupr": "0.0000 \u00b1 0.0000",
+        "aupr_mean": 0.0,
+        "aupr_std": 0.0
+      },
+      "best_run": {
+        "seed": 0,
+        "test": {
+          "p@1": 1.0,
+          "p@5": 1.0,
+          "si_snr": 13.856168746948242,
+          "accuracy": 1.0,
+          "cmc": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "roc": {
+            "fpr": [
+              0.0,
+              1.0
+            ],
+            "tpr": [
+              0.0,
+              1.0
+            ]
+          },
+          "det": {
+            "fpr": [
+              0.0,
+              1.0
+            ],
+            "fnr": [
+              1.0,
+              0.0
+            ]
+          },
+          "eer": 0.0,
+          "latency": 64.178466796875,
+          "params": 11629444,
+          "robustness": {
+            "20": {
+              "p@1": 1.0,
+              "delta_sisnr": -42.07496643066406
+            }
+          }
+        },
+        "novelty": {
+          "tar": 1.0,
+          "trr": 0,
+          "far": 1,
+          "frr": 0.0,
+          "auroc": NaN,
+          "aupr": 0.0,
+          "threshold": 0.008520131930708885,
+          "known_samples": 1,
+          "unknown_samples": 0
+        }
+      }
+    },
+    {
+      "noise_type": "gaussian",
+      "model_name": "ResNet34_ArcFace",
+      "stats": {
+        "p@1": "1.0000 \u00b1 0.0000",
+        "p@1_mean": 1.0,
+        "p@1_std": 0.0,
+        "p@5": "1.0000 \u00b1 0.0000",
+        "p@5_mean": 1.0,
+        "p@5_std": 0.0,
+        "si_snr": "7.9717 \u00b1 4.5793",
+        "si_snr_mean": 7.971720933914185,
+        "si_snr_std": 4.579293835516006,
+        "accuracy": "1.0000 \u00b1 0.0000",
+        "accuracy_mean": 1.0,
+        "accuracy_std": 0.0,
+        "eer": "0.0000 \u00b1 0.0000",
+        "eer_mean": 0.0,
+        "eer_std": 0.0,
+        "latency": "90.8054 \u00b1 8.0082",
+        "latency_mean": 90.8053716023763,
+        "latency_std": 8.008221638705242,
+        "tar": "0.6667 \u00b1 0.4714",
+        "tar_mean": 0.6666666666666666,
+        "tar_std": 0.4714045207910317,
+        "trr": "0.0000 \u00b1 0.0000",
+        "trr_mean": 0.0,
+        "trr_std": 0.0,
+        "far": "1.0000 \u00b1 0.0000",
+        "far_mean": 1.0,
+        "far_std": 0.0,
+        "frr": "0.3333 \u00b1 0.4714",
+        "frr_mean": 0.3333333333333333,
+        "frr_std": 0.4714045207910317,
+        "auroc": "nan \u00b1 nan",
+        "auroc_mean": NaN,
+        "auroc_std": NaN,
+        "aupr": "0.0000 \u00b1 0.0000",
+        "aupr_mean": 0.0,
+        "aupr_std": 0.0
+      },
+      "best_run": {
+        "seed": 0,
+        "test": {
+          "p@1": 1.0,
+          "p@5": 1.0,
+          "si_snr": 13.904715538024902,
+          "accuracy": 1.0,
+          "cmc": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "roc": {
+            "fpr": [
+              0.0,
+              1.0
+            ],
+            "tpr": [
+              0.0,
+              1.0
+            ]
+          },
+          "det": {
+            "fpr": [
+              0.0,
+              1.0
+            ],
+            "fnr": [
+              1.0,
+              0.0
+            ]
+          },
+          "eer": 0.0,
+          "latency": 79.53763008117676,
+          "params": 21737604,
+          "robustness": {
+            "20": {
+              "p@1": 1.0,
+              "delta_sisnr": -42.60137176513672
+            }
+          }
+        },
+        "novelty": {
+          "tar": 1.0,
+          "trr": 0,
+          "far": 1,
+          "frr": 0.0,
+          "auroc": NaN,
+          "aupr": 0.0,
+          "threshold": 0.008380594663321972,
+          "known_samples": 1,
+          "unknown_samples": 0
+        }
+      }
+    },
+    {
+      "noise_type": "powerline",
+      "model_name": "ResNet34_MultiSim",
+      "stats": {
+        "p@1": "1.0000 \u00b1 0.0000",
+        "p@1_mean": 1.0,
+        "p@1_std": 0.0,
+        "p@5": "1.0000 \u00b1 0.0000",
+        "p@5_mean": 1.0,
+        "p@5_std": 0.0,
+        "si_snr": "8.9220 \u00b1 2.0938",
+        "si_snr_mean": 8.922000885009766,
+        "si_snr_std": 2.0938269561626672,
+        "accuracy": "1.0000 \u00b1 0.0000",
+        "accuracy_mean": 1.0,
+        "accuracy_std": 0.0,
+        "eer": "0.0000 \u00b1 0.0000",
+        "eer_mean": 0.0,
+        "eer_std": 0.0,
+        "latency": "96.6641 \u00b1 24.5387",
+        "latency_mean": 96.6641108194987,
+        "latency_std": 24.538701486822557,
+        "tar": "0.6667 \u00b1 0.4714",
+        "tar_mean": 0.6666666666666666,
+        "tar_std": 0.4714045207910317,
+        "trr": "0.0000 \u00b1 0.0000",
+        "trr_mean": 0.0,
+        "trr_std": 0.0,
+        "far": "1.0000 \u00b1 0.0000",
+        "far_mean": 1.0,
+        "far_std": 0.0,
+        "frr": "0.3333 \u00b1 0.4714",
+        "frr_mean": 0.3333333333333333,
+        "frr_std": 0.4714045207910317,
+        "auroc": "nan \u00b1 nan",
+        "auroc_mean": NaN,
+        "auroc_std": NaN,
+        "aupr": "0.0000 \u00b1 0.0000",
+        "aupr_mean": 0.0,
+        "aupr_std": 0.0
+      },
+      "best_run": {
+        "seed": 0,
+        "test": {
+          "p@1": 1.0,
+          "p@5": 1.0,
+          "si_snr": 11.727790832519531,
+          "accuracy": 1.0,
+          "cmc": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "roc": {
+            "fpr": [
+              0.0,
+              1.0
+            ],
+            "tpr": [
+              0.0,
+              1.0
+            ]
+          },
+          "det": {
+            "fpr": [
+              0.0,
+              1.0
+            ],
+            "fnr": [
+              1.0,
+              0.0
+            ]
+          },
+          "eer": 0.0,
+          "latency": 67.04926490783691,
+          "params": 21737604,
+          "robustness": {
+            "5": {
+              "p@1": 1.0,
+              "delta_sisnr": -29.750255584716797
+            }
+          }
+        },
+        "novelty": {
+          "tar": 0.0,
+          "trr": 0,
+          "far": 1,
+          "frr": 1.0,
+          "auroc": NaN,
+          "aupr": 0.0,
+          "threshold": 0.003956465516239405,
+          "known_samples": 1,
+          "unknown_samples": 0
+        }
+      }
+    },
+    {
+      "noise_type": "powerline",
+      "model_name": "ResNet18_MultiSim",
+      "stats": {
+        "p@1": "1.0000 \u00b1 0.0000",
+        "p@1_mean": 1.0,
+        "p@1_std": 0.0,
+        "p@5": "1.0000 \u00b1 0.0000",
+        "p@5_mean": 1.0,
+        "p@5_std": 0.0,
+        "si_snr": "8.9201 \u00b1 2.1106",
+        "si_snr_mean": 8.920076529184977,
+        "si_snr_std": 2.1106204185053294,
+        "accuracy": "1.0000 \u00b1 0.0000",
+        "accuracy_mean": 1.0,
+        "accuracy_std": 0.0,
+        "eer": "0.0000 \u00b1 0.0000",
+        "eer_mean": 0.0,
+        "eer_std": 0.0,
+        "latency": "81.8326 \u00b1 14.6875",
+        "latency_mean": 81.8325678507487,
+        "latency_std": 14.687488187161911,
+        "tar": "0.6667 \u00b1 0.4714",
+        "tar_mean": 0.6666666666666666,
+        "tar_std": 0.4714045207910317,
+        "trr": "0.0000 \u00b1 0.0000",
+        "trr_mean": 0.0,
+        "trr_std": 0.0,
+        "far": "1.0000 \u00b1 0.0000",
+        "far_mean": 1.0,
+        "far_std": 0.0,
+        "frr": "0.3333 \u00b1 0.4714",
+        "frr_mean": 0.3333333333333333,
+        "frr_std": 0.4714045207910317,
+        "auroc": "nan \u00b1 nan",
+        "auroc_mean": NaN,
+        "auroc_std": NaN,
+        "aupr": "0.0000 \u00b1 0.0000",
+        "aupr_mean": 0.0,
+        "aupr_std": 0.0
+      },
+      "best_run": {
+        "seed": 0,
+        "test": {
+          "p@1": 1.0,
+          "p@5": 1.0,
+          "si_snr": 11.723365783691406,
+          "accuracy": 1.0,
+          "cmc": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "roc": {
+            "fpr": [
+              0.0,
+              1.0
+            ],
+            "tpr": [
+              0.0,
+              1.0
+            ]
+          },
+          "det": {
+            "fpr": [
+              0.0,
+              1.0
+            ],
+            "fnr": [
+              1.0,
+              0.0
+            ]
+          },
+          "eer": 0.0,
+          "latency": 102.31828689575195,
+          "params": 11629444,
+          "robustness": {
+            "5": {
+              "p@1": 1.0,
+              "delta_sisnr": -30.207332611083984
+            }
+          }
+        },
+        "novelty": {
+          "tar": 1.0,
+          "trr": 0,
+          "far": 1,
+          "frr": 0.0,
+          "auroc": NaN,
+          "aupr": 0.0,
+          "threshold": 0.010499455034732819,
+          "known_samples": 1,
+          "unknown_samples": 0
+        }
+      }
+    },
+    {
+      "noise_type": "powerline",
+      "model_name": "ResNet34_ArcFace",
+      "stats": {
+        "p@1": "1.0000 \u00b1 0.0000",
+        "p@1_mean": 1.0,
+        "p@1_std": 0.0,
+        "p@5": "1.0000 \u00b1 0.0000",
+        "p@5_mean": 1.0,
+        "p@5_std": 0.0,
+        "si_snr": "8.9220 \u00b1 2.0938",
+        "si_snr_mean": 8.922000885009766,
+        "si_snr_std": 2.0938269561626672,
+        "accuracy": "1.0000 \u00b1 0.0000",
+        "accuracy_mean": 1.0,
+        "accuracy_std": 0.0,
+        "eer": "0.0000 \u00b1 0.0000",
+        "eer_mean": 0.0,
+        "eer_std": 0.0,
+        "latency": "84.8076 \u00b1 9.3260",
+        "latency_mean": 84.8076343536377,
+        "latency_std": 9.32598223117167,
+        "tar": "0.6667 \u00b1 0.4714",
+        "tar_mean": 0.6666666666666666,
+        "tar_std": 0.4714045207910317,
+        "trr": "0.0000 \u00b1 0.0000",
+        "trr_mean": 0.0,
+        "trr_std": 0.0,
+        "far": "1.0000 \u00b1 0.0000",
+        "far_mean": 1.0,
+        "far_std": 0.0,
+        "frr": "0.3333 \u00b1 0.4714",
+        "frr_mean": 0.3333333333333333,
+        "frr_std": 0.4714045207910317,
+        "auroc": "nan \u00b1 nan",
+        "auroc_mean": NaN,
+        "auroc_std": NaN,
+        "aupr": "0.0000 \u00b1 0.0000",
+        "aupr_mean": 0.0,
+        "aupr_std": 0.0
+      },
+      "best_run": {
+        "seed": 0,
+        "test": {
+          "p@1": 1.0,
+          "p@5": 1.0,
+          "si_snr": 11.727790832519531,
+          "accuracy": 1.0,
+          "cmc": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "roc": {
+            "fpr": [
+              0.0,
+              1.0
+            ],
+            "tpr": [
+              0.0,
+              1.0
+            ]
+          },
+          "det": {
+            "fpr": [
+              0.0,
+              1.0
+            ],
+            "fnr": [
+              1.0,
+              0.0
+            ]
+          },
+          "eer": 0.0,
+          "latency": 96.53401374816895,
+          "params": 21737604,
+          "robustness": {
+            "5": {
+              "p@1": 1.0,
+              "delta_sisnr": -29.750255584716797
+            }
+          }
+        },
+        "novelty": {
+          "tar": 0.0,
+          "trr": 0,
+          "far": 1,
+          "frr": 1.0,
+          "auroc": NaN,
+          "aupr": 0.0,
+          "threshold": 0.0039565227925777435,
+          "known_samples": 1,
+          "unknown_samples": 0
+        }
+      }
+    },
+    {
+      "noise_type": "emg",
+      "model_name": "ResNet34_MultiSim",
+      "stats": {
+        "p@1": "1.0000 \u00b1 0.0000",
+        "p@1_mean": 1.0,
+        "p@1_std": 0.0,
+        "p@5": "1.0000 \u00b1 0.0000",
+        "p@5_mean": 1.0,
+        "p@5_std": 0.0,
+        "si_snr": "8.2629 \u00b1 3.8473",
+        "si_snr_mean": 8.262901465098063,
+        "si_snr_std": 3.847344043598473,
+        "accuracy": "1.0000 \u00b1 0.0000",
+        "accuracy_mean": 1.0,
+        "accuracy_std": 0.0,
+        "eer": "0.0000 \u00b1 0.0000",
+        "eer_mean": 0.0,
+        "eer_std": 0.0,
+        "latency": "78.9545 \u00b1 3.6675",
+        "latency_mean": 78.95445823669434,
+        "latency_std": 3.6675383194385947,
+        "tar": "0.6667 \u00b1 0.4714",
+        "tar_mean": 0.6666666666666666,
+        "tar_std": 0.4714045207910317,
+        "trr": "0.0000 \u00b1 0.0000",
+        "trr_mean": 0.0,
+        "trr_std": 0.0,
+        "far": "1.0000 \u00b1 0.0000",
+        "far_mean": 1.0,
+        "far_std": 0.0,
+        "frr": "0.3333 \u00b1 0.4714",
+        "frr_mean": 0.3333333333333333,
+        "frr_std": 0.4714045207910317,
+        "auroc": "nan \u00b1 nan",
+        "auroc_mean": NaN,
+        "auroc_std": NaN,
+        "aupr": "0.0000 \u00b1 0.0000",
+        "aupr_mean": 0.0,
+        "aupr_std": 0.0
+      },
+      "best_run": {
+        "seed": 0,
+        "test": {
+          "p@1": 1.0,
+          "p@5": 1.0,
+          "si_snr": 13.208822250366211,
+          "accuracy": 1.0,
+          "cmc": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "roc": {
+            "fpr": [
+              0.0,
+              1.0
+            ],
+            "tpr": [
+              0.0,
+              1.0
+            ]
+          },
+          "det": {
+            "fpr": [
+              0.0,
+              1.0
+            ],
+            "fnr": [
+              1.0,
+              0.0
+            ]
+          },
+          "eer": 0.0,
+          "latency": 77.84700393676758,
+          "params": 21737604,
+          "robustness": {
+            "20": {
+              "p@1": 1.0,
+              "delta_sisnr": -39.013397216796875
+            }
+          }
+        },
+        "novelty": {
+          "tar": 1.0,
+          "trr": 0,
+          "far": 1,
+          "frr": 0.0,
+          "auroc": NaN,
+          "aupr": 0.0,
+          "threshold": 0.00909327995032072,
+          "known_samples": 1,
+          "unknown_samples": 0
+        }
+      }
+    },
+    {
+      "noise_type": "emg",
+      "model_name": "ResNet18_MultiSim",
+      "stats": {
+        "p@1": "1.0000 \u00b1 0.0000",
+        "p@1_mean": 1.0,
+        "p@1_std": 0.0,
+        "p@5": "1.0000 \u00b1 0.0000",
+        "p@5_mean": 1.0,
+        "p@5_std": 0.0,
+        "si_snr": "8.2527 \u00b1 3.7840",
+        "si_snr_mean": 8.252735137939453,
+        "si_snr_std": 3.7839516334843815,
+        "accuracy": "1.0000 \u00b1 0.0000",
+        "accuracy_mean": 1.0,
+        "accuracy_std": 0.0,
+        "eer": "0.0000 \u00b1 0.0000",
+        "eer_mean": 0.0,
+        "eer_std": 0.0,
+        "latency": "70.0126 \u00b1 4.3566",
+        "latency_mean": 70.01256942749023,
+        "latency_std": 4.356596820304019,
+        "tar": "0.3333 \u00b1 0.4714",
+        "tar_mean": 0.3333333333333333,
+        "tar_std": 0.4714045207910317,
+        "trr": "0.0000 \u00b1 0.0000",
+        "trr_mean": 0.0,
+        "trr_std": 0.0,
+        "far": "1.0000 \u00b1 0.0000",
+        "far_mean": 1.0,
+        "far_std": 0.0,
+        "frr": "0.6667 \u00b1 0.4714",
+        "frr_mean": 0.6666666666666666,
+        "frr_std": 0.4714045207910317,
+        "auroc": "nan \u00b1 nan",
+        "auroc_mean": NaN,
+        "auroc_std": NaN,
+        "aupr": "0.0000 \u00b1 0.0000",
+        "aupr_mean": 0.0,
+        "aupr_std": 0.0
+      },
+      "best_run": {
+        "seed": 0,
+        "test": {
+          "p@1": 1.0,
+          "p@5": 1.0,
+          "si_snr": 13.082704544067383,
+          "accuracy": 1.0,
+          "cmc": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "roc": {
+            "fpr": [
+              0.0,
+              1.0
+            ],
+            "tpr": [
+              0.0,
+              1.0
+            ]
+          },
+          "det": {
+            "fpr": [
+              0.0,
+              1.0
+            ],
+            "fnr": [
+              1.0,
+              0.0
+            ]
+          },
+          "eer": 0.0,
+          "latency": 66.99466705322266,
+          "params": 11629444,
+          "robustness": {
+            "20": {
+              "p@1": 1.0,
+              "delta_sisnr": -38.9556884765625
+            }
+          }
+        },
+        "novelty": {
+          "tar": 1.0,
+          "trr": 0,
+          "far": 1,
+          "frr": 0.0,
+          "auroc": NaN,
+          "aupr": 0.0,
+          "threshold": 0.0096074054017663,
+          "known_samples": 1,
+          "unknown_samples": 0
+        }
+      }
+    },
+    {
+      "noise_type": "emg",
+      "model_name": "ResNet34_ArcFace",
+      "stats": {
+        "p@1": "1.0000 \u00b1 0.0000",
+        "p@1_mean": 1.0,
+        "p@1_std": 0.0,
+        "p@5": "1.0000 \u00b1 0.0000",
+        "p@5_mean": 1.0,
+        "p@5_std": 0.0,
+        "si_snr": "8.2629 \u00b1 3.8473",
+        "si_snr_mean": 8.262901465098063,
+        "si_snr_std": 3.847344043598473,
+        "accuracy": "1.0000 \u00b1 0.0000",
+        "accuracy_mean": 1.0,
+        "accuracy_std": 0.0,
+        "eer": "0.0000 \u00b1 0.0000",
+        "eer_mean": 0.0,
+        "eer_std": 0.0,
+        "latency": "77.8623 \u00b1 2.9351",
+        "latency_mean": 77.86226272583008,
+        "latency_std": 2.9350517413050703,
+        "tar": "0.6667 \u00b1 0.4714",
+        "tar_mean": 0.6666666666666666,
+        "tar_std": 0.4714045207910317,
+        "trr": "0.0000 \u00b1 0.0000",
+        "trr_mean": 0.0,
+        "trr_std": 0.0,
+        "far": "1.0000 \u00b1 0.0000",
+        "far_mean": 1.0,
+        "far_std": 0.0,
+        "frr": "0.3333 \u00b1 0.4714",
+        "frr_mean": 0.3333333333333333,
+        "frr_std": 0.4714045207910317,
+        "auroc": "nan \u00b1 nan",
+        "auroc_mean": NaN,
+        "auroc_std": NaN,
+        "aupr": "0.0000 \u00b1 0.0000",
+        "aupr_mean": 0.0,
+        "aupr_std": 0.0
+      },
+      "best_run": {
+        "seed": 0,
+        "test": {
+          "p@1": 1.0,
+          "p@5": 1.0,
+          "si_snr": 13.208822250366211,
+          "accuracy": 1.0,
+          "cmc": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "roc": {
+            "fpr": [
+              0.0,
+              1.0
+            ],
+            "tpr": [
+              0.0,
+              1.0
+            ]
+          },
+          "det": {
+            "fpr": [
+              0.0,
+              1.0
+            ],
+            "fnr": [
+              1.0,
+              0.0
+            ]
+          },
+          "eer": 0.0,
+          "latency": 74.62596893310547,
+          "params": 21737604,
+          "robustness": {
+            "20": {
+              "p@1": 1.0,
+              "delta_sisnr": -39.013397216796875
+            }
+          }
+        },
+        "novelty": {
+          "tar": 1.0,
+          "trr": 0,
+          "far": 1,
+          "frr": 0.0,
+          "auroc": NaN,
+          "aupr": 0.0,
+          "threshold": 0.009132636711001396,
+          "known_samples": 1,
+          "unknown_samples": 0
+        }
+      }
+    }
+  ]
+}{"text": "2026-02-01 04:13:32.021 | INFO     | datapreprocessor:load:136 - load_start\n", "record": {"elapsed": {"repr": "0:00:01.848171", "seconds": 1.848171}, "exception": null, "extra": {"module": "eeg.pipeline", "folder": "../dataset/Segmented_Data"}, "file": {"name": "datapreprocessor.py", "path": "S:\\PwnQ1\\experiments\\v2_mamba_denoiser\\datapreprocessor.py"}, "function": "load", "level": {"icon": "ℹ️", "name": "INFO", "no": 20}, "line": 136, "message": "load_start", "module": "datapreprocessor", "name": "datapreprocessor", "process": {"id": 78644, "name": "MainProcess"}, "thread": {"id": 26100, "name": "MainThread"}, "time": {"repr": "2026-02-01 04:13:32.021929+01:00", "timestamp": 1769915612.021929}}}
+{"text": "2026-02-01 04:13:59.994 | INFO     | datapreprocessor:load:136 - load_start\n", "record": {"elapsed": {"repr": "0:00:01.730079", "seconds": 1.730079}, "exception": null, "extra": {"module": "eeg.pipeline", "folder": "../../dataset/Segmented_Data"}, "file": {"name": "datapreprocessor.py", "path": "S:\\PwnQ1\\experiments\\v2_mamba_denoiser\\datapreprocessor.py"}, "function": "load", "level": {"icon": "ℹ️", "name": "INFO", "no": 20}, "line": 136, "message": "load_start", "module": "datapreprocessor", "name": "datapreprocessor", "process": {"id": 51788, "name": "MainProcess"}, "thread": {"id": 134916, "name": "MainThread"}, "time": {"repr": "2026-02-01 04:13:59.994571+01:00", "timestamp": 1769915639.994571}}}
+{"text": "2026-02-01 04:14:04.659 | INFO     | datapreprocessor:load:178 - load_complete\n", "record": {"elapsed": {"repr": "0:00:06.395288", "seconds": 6.395288}, "exception": null, "extra": {"module": "eeg.pipeline", "subjects": 20, "files": 240}, "file": {"name": "datapreprocessor.py", "path": "S:\\PwnQ1\\experiments\\v2_mamba_denoiser\\datapreprocessor.py"}, "function": "load", "level": {"icon": "ℹ️", "name": "INFO", "no": 20}, "line": 178, "message": "load_complete", "module": "datapreprocessor", "name": "datapreprocessor", "process": {"id": 51788, "name": "MainProcess"}, "thread": {"id": 134916, "name": "MainThread"}, "time": {"repr": "2026-02-01 04:14:04.659780+01:00", "timestamp": 1769915644.65978}}}
+{"text": "2026-02-01 04:14:04.660 | INFO     | datapreprocessor:preprocess:200 - preprocess_start\n", "record": {"elapsed": {"repr": "0:00:06.395653", "seconds": 6.395653}, "exception": null, "extra": {"module": "eeg.pipeline", "filter_low": 1.0, "filter_high": 40.0}, "file": {"name": "datapreprocessor.py", "path": "S:\\PwnQ1\\experiments\\v2_mamba_denoiser\\datapreprocessor.py"}, "function": "preprocess", "level": {"icon": "ℹ️", "name": "INFO", "no": 20}, "line": 200, "message": "preprocess_start", "module": "datapreprocessor", "name": "datapreprocessor", "process": {"id": 51788, "name": "MainProcess"}, "thread": {"id": 134916, "name": "MainThread"}, "time": {"repr": "2026-02-01 04:14:04.660145+01:00", "timestamp": 1769915644.660145}}}
+{"text": "2026-02-01 04:14:05.877 | INFO     | datapreprocessor:preprocess:223 - preprocess_complete\n", "record": {"elapsed": {"repr": "0:00:07.613104", "seconds": 7.613104}, "exception": null, "extra": {"module": "eeg.pipeline", "total": 240}, "file": {"name": "datapreprocessor.py", "path": "S:\\PwnQ1\\experiments\\v2_mamba_denoiser\\datapreprocessor.py"}, "function": "preprocess", "level": {"icon": "ℹ️", "name": "INFO", "no": 20}, "line": 223, "message": "preprocess_complete", "module": "datapreprocessor", "name": "datapreprocessor", "process": {"id": 51788, "name": "MainProcess"}, "thread": {"id": 134916, "name": "MainThread"}, "time": {"repr": "2026-02-01 04:14:05.877596+01:00", "timestamp": 1769915645.877596}}}
+{"text": "2026-02-01 04:14:05.971 | INFO     | datapreprocessor:build_dataset_with_novelty:398 - novelty_split\n", "record": {"elapsed": {"repr": "0:00:07.706849", "seconds": 7.706849}, "exception": null, "extra": {"module": "eeg.pipeline", "train_subjects": [1, 3, 4, 6, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20], "holdout_subjects": [2, 5, 7, 12]}, "file": {"name": "datapreprocessor.py", "path": "S:\\PwnQ1\\experiments\\v2_mamba_denoiser\\datapreprocessor.py"}, "function": "build_dataset_with_novelty", "level": {"icon": "ℹ️", "name": "INFO", "no": 20}, "line": 398, "message": "novelty_split", "module": "datapreprocessor", "name": "datapreprocessor", "process": {"id": 51788, "name": "MainProcess"}, "thread": {"id": 134916, "name": "MainThread"}, "time": {"repr": "2026-02-01 04:14:05.971341+01:00", "timestamp": 1769915645.971341}}}
+{"text": "2026-02-01 04:14:07.953 | INFO     | datapreprocessor:build_dataset_with_novelty:436 - novelty_dataset_complete\n", "record": {"elapsed": {"repr": "0:00:09.688950", "seconds": 9.68895}, "exception": null, "extra": {"module": "eeg.pipeline", "known_samples": 11362, "unknown_samples": 2872, "num_known_classes": 16}, "file": {"name": "datapreprocessor.py", "path": "S:\\PwnQ1\\experiments\\v2_mamba_denoiser\\datapreprocessor.py"}, "function": "build_dataset_with_novelty", "level": {"icon": "ℹ️", "name": "INFO", "no": 20}, "line": 436, "message": "novelty_dataset_complete", "module": "datapreprocessor", "name": "datapreprocessor", "process": {"id": 51788, "name": "MainProcess"}, "thread": {"id": 134916, "name": "MainThread"}, "time": {"repr": "2026-02-01 04:14:07.953442+01:00", "timestamp": 1769915647.953442}}}

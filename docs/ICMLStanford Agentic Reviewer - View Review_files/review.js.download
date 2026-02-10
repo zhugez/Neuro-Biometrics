@@ -1,0 +1,399 @@
+// Review viewing functionality
+let currentReviewData = null;
+let currentToken = null;
+
+// Check for token in URL parameter on load
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Lucide icons
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+
+    if (token) {
+        document.getElementById('token').value = token;
+        loadReview();
+    }
+
+    // Add character counter for additional comments
+    const commentsTextarea = document.getElementById('additionalComments');
+    if (commentsTextarea) {
+        commentsTextarea.addEventListener('input', function() {
+            const charCount = document.getElementById('charCount');
+            charCount.textContent = this.value.length;
+        });
+    }
+});
+
+async function loadReview() {
+    const token = document.getElementById('token').value.trim();
+
+    if (!token) {
+        showError('Please enter a valid token');
+        return;
+    }
+
+    // Hide all sections
+    document.getElementById('tokenInput').style.display = 'none';
+    document.getElementById('reviewContent').style.display = 'none';
+    document.getElementById('error').style.display = 'none';
+
+    // Show loading
+    document.getElementById('loading').style.display = 'block';
+
+    try {
+        const response = await fetch(`/api/review/${token}`);
+        const data = await response.json();
+
+        document.getElementById('loading').style.display = 'none';
+
+        if (response.status === 202) {
+            // Review still processing
+            showError(data.detail, 'warning');
+            document.getElementById('tokenInput').style.display = 'block';
+            return;
+        }
+
+        if (!response.ok) {
+            throw new Error(data.detail || 'Failed to load review');
+        }
+
+        // Store review data and token
+        currentReviewData = data;
+        currentToken = token;
+
+        // Display review
+        displayReview(data);
+
+        // Show feedback section if feedback hasn't been submitted yet
+        if (!data.has_feedback) {
+            document.getElementById('feedbackSection').style.display = 'block';
+        }
+
+    } catch (error) {
+        document.getElementById('loading').style.display = 'none';
+        showError(error.message);
+        document.getElementById('tokenInput').style.display = 'block';
+    }
+}
+
+function displayReview(data) {
+    // Set header information
+    document.getElementById('paperTitle').textContent = data.title;
+    document.getElementById('venueText').textContent = data.venue;
+    document.getElementById('dateText').textContent = `Submitted: ${formatDate(data.submission_date)}`;
+
+    const sections = data.sections || {};
+
+    // Build table of contents
+    buildTableOfContents(sections);
+
+    // Display sections
+    if (sections.summary) {
+        displaySection('summarySection', 'summaryContent', sections.summary, false, true);
+    } else {
+        document.getElementById('summarySection').style.display = 'none';
+    }
+
+    if (sections.strengths) {
+        displaySection('strengthsSection', 'strengthsContent', sections.strengths);
+    } else {
+        document.getElementById('strengthsSection').style.display = 'none';
+    }
+
+    if (sections.weaknesses) {
+        displaySection('weaknessesSection', 'weaknessesContent', sections.weaknesses);
+    } else {
+        document.getElementById('weaknessesSection').style.display = 'none';
+    }
+
+    if (sections.detailed_comments) {
+        displaySection('detailedSection', 'detailedContent', sections.detailed_comments);
+    } else {
+        document.getElementById('detailedSection').style.display = 'none';
+    }
+
+    if (sections.questions) {
+        displaySection('questionsSection', 'questionsContent', sections.questions, true);
+    } else {
+        document.getElementById('questionsSection').style.display = 'none';
+    }
+
+    if (sections.assessment) {
+        displaySection('assessmentSection', 'assessmentContent', sections.assessment, false, true);
+
+        // Add numerical score if available
+        if (data.numerical_score !== null && data.numerical_score !== undefined) {
+            const assessmentContent = document.getElementById('assessmentContent');
+            const scoreDiv = document.createElement('div');
+            scoreDiv.className = 'mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg';
+            scoreDiv.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <span class="text-sm font-semibold text-gray-700">Estimated Score:</span>
+                    <span class="text-sm font-bold text-gray-900">${data.numerical_score}/10</span>
+                    <span class="text-xs text-gray-500">(Calibrated to ICLR scale)</span>
+                </div>
+            `;
+            assessmentContent.insertBefore(scoreDiv, assessmentContent.firstChild);
+        }
+    } else {
+        document.getElementById('assessmentSection').style.display = 'none';
+    }
+
+    // Show full review if no sections were parsed
+    if (sections.full_review) {
+        displaySection('fullReviewSection', 'fullReviewContent', sections.full_review);
+        document.getElementById('fullReviewSection').style.display = 'block';
+    }
+
+    // Show review content
+    document.getElementById('reviewContent').style.display = 'block';
+
+    // Initialize Lucide icons
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+
+    // Setup scroll spy for TOC
+    setupScrollSpy();
+}
+
+function buildTableOfContents(sections) {
+    const tocList = document.getElementById('tocList');
+    tocList.innerHTML = '';
+
+    const sectionMap = [
+        { key: 'summary', label: 'Summary', id: 'summarySection' },
+        { key: 'strengths', label: 'Strengths', id: 'strengthsSection' },
+        { key: 'weaknesses', label: 'Weaknesses', id: 'weaknessesSection' },
+        { key: 'detailed_comments', label: 'Detailed Comments', id: 'detailedSection' },
+        { key: 'questions', label: 'Questions', id: 'questionsSection' },
+        { key: 'assessment', label: 'Overall Assessment', id: 'assessmentSection' }
+    ];
+
+    sectionMap.forEach(section => {
+        if (sections[section.key]) {
+            const li = document.createElement('li');
+            const a = document.createElement('a');
+            a.href = `#${section.id}`;
+            a.textContent = section.label;
+            a.className = 'toc-link block px-2 py-2 text-sm text-gray-700 rounded-lg';
+            a.onclick = (e) => {
+                e.preventDefault();
+                document.getElementById(section.id).scrollIntoView({ behavior: 'smooth', block: 'start' });
+            };
+            li.appendChild(a);
+            tocList.appendChild(li);
+        }
+    });
+}
+
+function setupScrollSpy() {
+    const sections = document.querySelectorAll('[id$="Section"]');
+    const tocLinks = document.querySelectorAll('.toc-link');
+    const tocContainer = document.querySelector('.sidebar-toc nav');
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const id = entry.target.id;
+                tocLinks.forEach(link => {
+                    if (link.getAttribute('href') === `#${id}`) {
+                        link.classList.add('active');
+                        // Scroll the TOC container to show the active link, not the whole page
+                        if (tocContainer) {
+                            const linkTop = link.offsetTop;
+                            const containerHeight = tocContainer.clientHeight;
+                            const linkHeight = link.offsetHeight;
+                            tocContainer.scrollTop = linkTop - (containerHeight / 2) + (linkHeight / 2);
+                        }
+                    } else {
+                        link.classList.remove('active');
+                    }
+                });
+            }
+        });
+    }, {
+        rootMargin: '-100px 0px -50%',
+        threshold: 0.1
+    });
+
+    sections.forEach(section => observer.observe(section));
+}
+
+function displaySection(sectionId, contentId, content, indentFirstLevel = false, normalWeight = false) {
+    const sectionElement = document.getElementById(sectionId);
+    const contentElement = document.getElementById(contentId);
+
+    // Configure marked options
+    marked.setOptions({
+        breaks: true,  // Convert \n to <br>
+        gfm: true      // GitHub Flavored Markdown
+    });
+
+    // Render markdown to HTML
+    contentElement.innerHTML = marked.parse(content);
+
+    // Add class to override bold styling if normalWeight is true OR if indentFirstLevel is true
+    // (indentFirstLevel should show normal weight bullets since they're visually second-level)
+    if (normalWeight || indentFirstLevel) {
+        contentElement.classList.add('normal-weight-bullets');
+
+        // Convert <br> tags to paragraph breaks for better spacing
+        contentElement.querySelectorAll('p').forEach(p => {
+            const html = p.innerHTML;
+            if (html.includes('<br>')) {
+                // Split by <br> and create separate paragraphs
+                const parts = html.split('<br>');
+                if (parts.length > 1) {
+                    const wrapper = document.createElement('div');
+                    parts.forEach(part => {
+                        if (part.trim()) {
+                            const newP = document.createElement('p');
+                            newP.innerHTML = part;
+                            newP.style.margin = '0.5em 0';
+                            wrapper.appendChild(newP);
+                        }
+                    });
+                    p.replaceWith(wrapper);
+                }
+            }
+        });
+    }
+
+    // If indentFirstLevel is true, ensure all first-level list items appear as second-level
+    if (indentFirstLevel) {
+        // Find all first-level <ul> elements directly under the content
+        const firstLevelLists = contentElement.querySelectorAll(':scope > ul, :scope > div > ul');
+
+        firstLevelLists.forEach(ul => {
+            // Get all direct <li> children
+            const directLiElements = Array.from(ul.children).filter(child => child.tagName === 'LI');
+
+            // Create a wrapper structure: ul > li > ul > (all original content)
+            const wrapperLi = document.createElement('li');
+            const nestedUl = document.createElement('ul');
+
+            // Move all direct li elements into the nested ul
+            directLiElements.forEach(li => {
+                nestedUl.appendChild(li);
+            });
+
+            // Build the wrapper structure
+            wrapperLi.appendChild(nestedUl);
+            ul.appendChild(wrapperLi);
+        });
+    }
+
+    sectionElement.style.display = 'block';
+}
+
+function showError(message, type = 'error') {
+    const errorBox = document.getElementById('error');
+    errorBox.className = type === 'warning'
+        ? 'mt-6 bg-yellow-50 border-l-4 border-yellow-500 rounded-xl p-6 text-yellow-800 shadow-md'
+        : 'mt-6 bg-red-50 border-l-4 border-red-500 rounded-xl p-6 text-red-800 shadow-md';
+    errorBox.innerHTML = `
+        <h4 class="text-lg font-semibold mb-2">${type === 'warning' ? '⚠️' : '✗'} ${type === 'warning' ? 'Notice' : 'Error'}</h4>
+        <p>${message}</p>
+    `;
+    errorBox.style.display = 'block';
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+}
+
+function downloadReview() {
+    if (!currentReviewData) return;
+
+    const content = currentReviewData.content;
+    const title = currentReviewData.title;
+
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `review_${title.replace(/[^a-z0-9]/gi, '_')}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function copyToClipboard() {
+    if (!currentReviewData) return;
+
+    const content = currentReviewData.content;
+
+    navigator.clipboard.writeText(content).then(() => {
+        alert('Review copied to clipboard!');
+    }).catch(err => {
+        console.error('Failed to copy:', err);
+        alert('Failed to copy to clipboard');
+    });
+}
+
+async function submitFeedback() {
+    if (!currentToken) return;
+
+    // Get selected values
+    const helpfulness = document.querySelector('input[name="helpfulness"]:checked');
+    const criticalError = document.querySelector('input[name="critical_error"]:checked');
+    const actionableSuggestions = document.querySelector('input[name="actionable_suggestions"]:checked');
+    const additionalComments = document.getElementById('additionalComments').value.trim();
+
+    // Validate all required questions are answered
+    if (!helpfulness || !criticalError || !actionableSuggestions) {
+        showError('Please answer all required questions before submitting');
+        return;
+    }
+
+    // Disable submit button
+    const submitBtn = document.getElementById('submitFeedbackBtn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting...';
+
+    try {
+        const feedbackData = {
+            helpfulness: parseInt(helpfulness.value),
+            has_critical_error: criticalError.value === 'yes',
+            has_actionable_suggestions: actionableSuggestions.value === 'yes'
+        };
+
+        // Only include additional_comments if provided
+        if (additionalComments) {
+            feedbackData.additional_comments = additionalComments;
+        }
+
+        const response = await fetch(`/api/feedback/${currentToken}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(feedbackData)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.detail || 'Failed to submit feedback');
+        }
+
+        // Hide feedback form and show success message
+        document.querySelector('#feedbackSection .space-y-6').style.display = 'none';
+        document.getElementById('feedbackSuccess').style.display = 'block';
+
+    } catch (error) {
+        showError(error.message);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Feedback';
+    }
+}

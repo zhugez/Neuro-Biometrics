@@ -1,0 +1,17 @@
+# Core ML
+torch>=2.0.0
+torchvision
+numpy
+pandas
+scikit-learn
+
+# EEG Processing
+mne
+
+# Metric Learning Losses
+pytorch-metric-learning
+
+# Utilities
+loguru
+gdown
+tqdm
