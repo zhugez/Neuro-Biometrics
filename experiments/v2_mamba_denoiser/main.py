@@ -110,7 +110,7 @@ class EEGPipeline:
     def _aggregate_results(self, runs: List[Dict], noise_type: str, model_name: str) -> Dict:
         """Compute Mean +/- Std for all metrics"""
         # Extract scalar metrics
-        keys_test = ["p@1", "p@5", "si_snr", "accuracy", "eer", "latency"]
+        keys_test = ["p@1", "p@5", "si_snr", "accuracy", "eer", "latency", "params"]
         keys_nov = ["tar", "trr", "far", "frr", "auroc", "aupr"]
         
         stats = {}
@@ -208,9 +208,13 @@ class EEGPipeline:
             print(f"{res['noise_type']:<12} | {res['model_name']:<20} | "
                   f"{s['p@1']:<18} | {s['si_snr']:<18} | {s['auroc']:<18} | {s['eer']:<18} | {s['latency_mean']:.2f}ms")
             
-            # Format row for README (Extended Metrics)
-            # | Model (Noise) | SI-SNR | P@1 | P@5 | EER | AUROC | Latency |
-            row = f"| {res['model_name']} ({res['noise_type']}) | {s['si_snr_mean']:.2f} dB | {s['p@1_mean']:.4f} | {s['p@5_mean']:.4f} | {s['eer_mean']:.4f} | {s['auroc_mean']:.4f} | {s['latency_mean']:.2f} ms |"
+            # Format row for README (Extended Metrics: +Params, +AUPR)
+            # | Model (Noise) | Params | SI-SNR | P@1 | P@5 | EER | AUROC | AUPR | Latency |
+            # Format params in Millions (M) or Thousands (K)
+            params_val = s['params_mean']
+            params_str = f"{params_val/1e6:.2f}M" if params_val > 1e6 else f"{params_val/1e3:.1f}K"
+            
+            row = f"| {res['model_name']} ({res['noise_type']}) | {params_str} | {s['si_snr_mean']:.2f} dB | {s['p@1_mean']:.4f} | {s['p@5_mean']:.4f} | {s['eer_mean']:.4f} | {s['auroc_mean']:.4f} | {s['aupr_mean']:.4f} | {s['latency_mean']:.2f} ms |"
             readme_rows.append(row)
             
         print("="*140)
@@ -235,7 +239,7 @@ class EEGPipeline:
                 return
 
             # Construct new extended table
-            header = "| Model (Noise) | SI-SNR | P@1 | P@5 | EER | AUROC | Latency |\n|---|---|---|---|---|---|---|"
+            header = "| Model (Noise) | Params | SI-SNR | P@1 | P@5 | EER | AUROC | AUPR | Latency |\n|---|---|---|---|---|---|---|---|---|"
             new_table = f"{start_marker}\n{header}\n" + "\n".join(rows) + f"\n{end_marker}"
 
             # Regex replace
