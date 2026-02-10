@@ -199,11 +199,57 @@ class EEGPipeline:
         headers = ["Noise", "Model", "P@1", "SI-SNR", "AUROC", "EER", "Latency"]
         print(f"{headers[0]:<12} | {headers[1]:<20} | {headers[2]:<18} | {headers[3]:<18} | {headers[4]:<18} | {headers[5]:<18} | {headers[6]:<10}")
         print("-"*140)
+        
+        # Prepare rows for README
+        readme_rows = []
+        
         for res in results:
             s = res['stats']
             print(f"{res['noise_type']:<12} | {res['model_name']:<20} | "
                   f"{s['p@1']:<18} | {s['si_snr']:<18} | {s['auroc']:<18} | {s['eer']:<18} | {s['latency_mean']:.2f}ms")
+            
+            # Format row for README (Extended Metrics)
+            # | Model (Noise) | SI-SNR | P@1 | P@5 | EER | AUROC | Latency |
+            row = f"| {res['model_name']} ({res['noise_type']}) | {s['si_snr_mean']:.2f} dB | {s['p@1_mean']:.4f} | {s['p@5_mean']:.4f} | {s['eer_mean']:.4f} | {s['auroc_mean']:.4f} | {s['latency_mean']:.2f} ms |"
+            readme_rows.append(row)
+            
         print("="*140)
+        self._update_readme(readme_rows)
+
+    def _update_readme(self, rows: List[str]):
+        """Auto-update README.md with new results"""
+        readme_path = "../../README.md"
+        if not os.path.exists(readme_path):
+            print(f"⚠️ Warning: README not found at {readme_path}")
+            return
+
+        try:
+            with open(readme_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            start_marker = "<!-- RESULTS_TABLE_START -->"
+            end_marker = "<!-- RESULTS_TABLE_END -->"
+
+            if start_marker not in content or end_marker not in content:
+                print("⚠️ Warning: Result markers not found in README")
+                return
+
+            # Construct new extended table
+            header = "| Model (Noise) | SI-SNR | P@1 | P@5 | EER | AUROC | Latency |\n|---|---|---|---|---|---|---|"
+            new_table = f"{start_marker}\n{header}\n" + "\n".join(rows) + f"\n{end_marker}"
+
+            # Regex replace
+            import re
+            pattern = re.compile(f"{re.escape(start_marker)}.*?{re.escape(end_marker)}", re.DOTALL)
+            new_content = pattern.sub(new_table, content)
+
+            with open(readme_path, 'w', encoding='utf-8') as f:
+                f.write(new_content)
+            
+            print(f"✅ Auto-updated README.md with latest results!")
+            
+        except Exception as e:
+            print(f"❌ Failed to update README: {e}")
 
 if __name__ == "__main__":
     # Reduced epochs for demo, but kept structure

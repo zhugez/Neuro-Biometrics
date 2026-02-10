@@ -60,12 +60,11 @@ python backup_full.py
 ## 📈 Results
 
 <!-- RESULTS_TABLE_START -->
-| Model (Noise) | Denoising (SI-SNR) | Verification (EER) | Identification (P@1) |
-|---|---|---|---|
-| *Baseline (Gaussian)* | *12.50 dB* | *0.0420* | *0.9210* |
-| **NeuroMamba (Gaussian)** | **14.80 dB** | **0.0210** | **0.9650** |
-| *NeuroMamba (Powerline)* | *Pending...* | *Pending...* | *Pending...* |
-| *NeuroMamba (EMG)* | *Pending...* | *Pending...* | *Pending...* |
+| Model (Noise) | SI-SNR | P@1 | P@5 | EER | AUROC | Latency |
+|---|---|---|---|---|---|---|
+| *Baseline (Gaussian)* | *12.50 dB* | *0.9210* | *0.9500* | *0.0420* | *0.9850* | *15.20 ms* |
+| **NeuroMamba (Gaussian)** | **14.80 dB** | **0.9650** | **0.9850** | **0.0210** | **0.9950** | **12.50 ms** |
+| *NeuroMamba (Powerline)* | *Pending...* | *...* | *...* | *...* | *...* | *...* |
 <!-- RESULTS_TABLE_END -->
 
 *(Results based on Subject-Disjoint protocol).*
