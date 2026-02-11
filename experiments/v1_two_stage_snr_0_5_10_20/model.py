@@ -49,16 +49,37 @@ class ResNetMetricEmbedder(nn.Module):
         super().__init__()
         weights = "IMAGENET1K_V1" if pretrained else None
         base = BACKBONES[backbone](weights=weights)
-        base.conv1 = nn.Conv2d(in_chans, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        # FIX: smaller conv1 (3x3 stride=1) + remove maxpool for small 2D EEG inputs
+        base.conv1 = nn.Conv2d(in_chans, 64, kernel_size=3, stride=1, padding=1, bias=False)
+        base.maxpool = nn.Identity()
         nfeat = base.fc.in_features
         base.fc = nn.Identity()
         self.backbone = base
+        # Deeper projection head for better embedding quality
         self.head = nn.Sequential(
-            nn.Linear(nfeat, embed_dim),
+            nn.Linear(nfeat, 256),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.1),
+            nn.Linear(256, embed_dim),
             nn.BatchNorm1d(embed_dim)
         )
 
+    @staticmethod
+    def _find_2d_shape(n):
+        """Find H, W close to square root for proper 2D spatial structure.
+        E.g. 800 -> (25, 32), 64 -> (8, 8)"""
+        sqrt_n = int(n ** 0.5)
+        for h in range(sqrt_n, 0, -1):
+            if n % h == 0:
+                return h, n // h
+        return 1, n
+
     def forward(self, x):
+        # FIX: reshape (B, C, T) -> (B, C, H, W) for proper 2D spatial convolutions
+        # Old code used unsqueeze(-1) giving (B,C,T,1) with width=1 -> ResNet can't learn
+        B, C, T = x.shape
+        H, W = self._find_2d_shape(T)
+        x = x.view(B, C, H, W)
         feat = self.backbone(x)
         emb = self.head(feat)
         return F.normalize(emb, p=2, dim=1)
@@ -73,8 +94,7 @@ class EEGMetricModel(nn.Module):
 
     def forward(self, x) -> Tuple[torch.Tensor, torch.Tensor]:
         denoised = self.filter_model(x)
-        img_like = denoised.unsqueeze(-1)
-        emb = self.embedder_model(img_like)
+        emb = self.embedder_model(denoised)  # embedder now handles (B,C,T)->2D internally
         return denoised, emb
 
 def create_metric_model(backbone="resnet18", n_channels=4, embed_dim=128, pretrained=True):

@@ -1,8 +1,7 @@
 import zipfile
 import os
 import datetime
-import subprocess
-import sys
+import shutil
 
 # --- PHẦN 1: ZIP WEIGHTS ---
 def zip_weights():
@@ -15,7 +14,7 @@ def zip_weights():
         "weights"
     ]
     
-    print(f"📦 [1/3] Đang nén file weights vào: {zip_name}...")
+    print(f"📦 [1/2] Đang nén file weights vào: {zip_name}...")
     count = 0
     with zipfile.ZipFile(zip_name, 'w', zipfile.ZIP_DEFLATED) as zipf:
         for folder in dirs_to_check:
@@ -30,43 +29,38 @@ def zip_weights():
                             print(f"  + {arcname}")
     
     if count > 0:
+        size_mb = os.path.getsize(zip_name) / (1024 * 1024)
+        print(f"  ✓ {count} files, {size_mb:.1f} MB")
         return zip_name
     else:
         if os.path.exists(zip_name): os.remove(zip_name)
         return None
 
-# --- PHẦN 2: UPLOAD GDRIVE ---
-def install_gdrive():
-    if not os.path.exists("./gdrive"):
-        print("⬇️ [2/3] Đang tải tool upload GDrive...")
-        cmd = "wget -q -O gdrive https://github.com/glotlabs/gdrive/releases/download/3.1.0/gdrive_linux-x64 && chmod +x gdrive"
-        subprocess.run(cmd, shell=True)
-
-def check_login():
-    ret = subprocess.run("./gdrive account list", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    return ret.returncode == 0
-
-def login():
-    print("\n🔐 CẦN ĐĂNG NHẬP (Lần đầu)")
-    print("👉 Copy link dưới, dán vào trình duyệt, login rồi copy code về đây:")
-    subprocess.run("./gdrive account add", shell=True)
-
-def upload(filepath):
-    install_gdrive()
-    if not check_login():
-        login()
+# --- PHẦN 2: COPY TO KAGGLE OUTPUT ---
+def save_to_output(filepath):
+    """Copy zip vào /kaggle/working/ để Kaggle tự lưu khi commit."""
+    output_dir = "/kaggle/working"
+    dest = os.path.join(output_dir, os.path.basename(filepath))
     
-    print(f"\n🚀 [3/3] Đang upload {filepath} lên Google Drive...")
-    ret = subprocess.run(f"./gdrive files upload \"{filepath}\"", shell=True)
-    if ret.returncode == 0:
-        print(f"✅ HOÀN TẤT! File đã lên Drive: {filepath}")
+    # Nếu file đã nằm trong /kaggle/working, chỉ cần thông báo
+    abs_path = os.path.abspath(filepath)
+    if abs_path.startswith(output_dir):
+        print(f"\n📂 [2/2] File đã nằm trong Kaggle output:")
+        print(f"  📍 {abs_path}")
     else:
-        print("❌ Lỗi upload.")
+        print(f"\n📂 [2/2] Copy vào Kaggle output...")
+        shutil.copy2(filepath, dest)
+        print(f"  📍 {dest}")
+    
+    size_mb = os.path.getsize(dest if not abs_path.startswith(output_dir) else abs_path) / (1024 * 1024)
+    print(f"\n✅ HOÀN TẤT! ({size_mb:.1f} MB)")
+    print("💡 Để tải về: Kaggle Notebook → Output tab → Download")
+    print("💡 Hoặc chạy: cp <file> /kaggle/working/ trước khi Save & Run All")
 
 # --- MAIN ---
 if __name__ == "__main__":
     zip_file = zip_weights()
     if zip_file:
-        upload(zip_file)
+        save_to_output(zip_file)
     else:
         print("⚠️ Không có file weights nào để backup.")

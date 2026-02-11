@@ -17,6 +17,7 @@ venv/
 
 # Logs (Ignore large raw logs, keep summaries)
 *.log
+output_*.json
 
 # System
 .DS_Store

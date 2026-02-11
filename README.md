@@ -6,8 +6,11 @@
 **Robust EEG Denoising and Biometric Verification using State Space Models (Mamba) and Metric Learning.**
 
 > 🚀 **Updates:**
-> - [2026-02-11] Integrated **Mamba Selective Scan** into WaveNet denoiser for linear-time sequence modeling.
-> - [2026-02-11] Implemented **Subject-Disjoint Splitting** to prevent data leakage.
+> - [2026-02-11] **v1 Major Fix:** Proper 2D reshape for ResNet embedder (was `unsqueeze(-1)` → width=1, now `reshape(B,C,H,W)`)
+> - [2026-02-11] Fixed data split: stratified sample-split (was subject-split causing 0% centroid accuracy)
+> - [2026-02-11] Added training augmentation (noise jitter + amplitude scaling), deeper projection head
+> - [2026-02-11] Integrated **Mamba Selective Scan** into WaveNet denoiser (v2) for linear-time sequence modeling
+> - [2026-02-11] Backup script: removed gdrive dependency, zip-only output for Kaggle
 
 ## 📖 Introduction
 
@@ -19,11 +22,32 @@ We propose a novel two-stage architecture:
 
 ## 🏗️ Architecture
 
-![Architecture](https://via.placeholder.com/800x300?text=WaveNet+Denoiser+%2B+Mamba+Block+%2B+ArcFace+Head)
+```
+Input EEG (B, C=4, T=800)
+        │
+        ▼
+┌──────────────────────┐
+│  WaveNet Denoiser    │  Stage 1: SI-SNR loss
+│  (Dilated Conv1D)    │  30 epochs, CosineAnnealing
+│  [+Mamba Block v2]   │
+└──────────┬───────────┘
+           │ denoised (B, C, T)
+           ▼
+┌──────────────────────┐
+│  Reshape to 2D       │  (B, 4, 25, 32) for T=800
+│  ResNet18/34 Backbone │  Conv2d 3×3 stride=1, no maxpool
+│  Projection Head     │  Linear→ReLU→Dropout→Linear→BN
+│  L2 Normalize        │
+└──────────┬───────────┘
+           │ embedding (B, 128)
+           ▼
+   ArcFace / MultiSimilarity Loss   Stage 2: metric learning
+```
 
-- **Backbone:** WaveNet (Dilated Convolutions) + Mamba (SSM).
-- **Loss Functions:** SI-SNR (Signal Quality) + ArcFace (Identity Verification).
-- **Optimization:** JIT-compiled Selective Scan for efficient training on consumer GPUs.
+- **Denoiser:** WaveNet (Dilated Conv) + optional Mamba SSM (v2)
+- **Embedder:** ResNet with proper 2D spatial input, deeper projection head
+- **Loss:** SI-SNR (denoising) + ArcFace/MultiSimilarity (identity verification)
+- **Augmentation:** Noise jitter + random amplitude scaling during Stage 2
 
 ## 🛠️ Installation
 
@@ -45,19 +69,43 @@ python download_dataset.py
 ```
 
 ### 2. Training
-Run the full evaluation pipeline (multi-seed, cross-subject validation):
+
 ```bash
-# Train Mamba-augmented model (v2)
+# v1: Two-stage pipeline (WaveNet + ResNet)
+python experiments/v1_two_stage_snr_0_5_10_20/main.py --epochs 30 --seeds 3
+
+# v2: Mamba-augmented denoiser
 python experiments/v2_mamba_denoiser/main.py
+
+# Quick one-sample smoke test
+python experiments/v1_two_stage_snr_0_5_10_20/main.py --one-sample
 ```
 
 ### 3. Backup Weights
-Automatically zip and upload checkpoints to Google Drive:
+Zip all checkpoints (saves to `/kaggle/working/` for Kaggle output):
 ```bash
 python backup_full.py
 ```
 
-## 📈 Results
+## � Project Structure
+
+```
+Neuro-Biometrics/
+├── experiments/
+│   ├── v1_two_stage_snr_0_5_10_20/   # Baseline: WaveNet + ResNet
+│   │   ├── main.py                    # Entry point
+│   │   ├── model.py                   # WaveNet denoiser + ResNet embedder
+│   │   ├── trainer.py                 # Two-stage training loop
+│   │   ├── datapreprocessor.py        # EEG loading, preprocessing, noise gen
+│   │   └── weights/                   # Saved checkpoints
+│   └── v2_mamba_denoiser/             # Mamba-augmented variant
+├── dataset/                           # EEG data (Filtered_Data, Segmented_Data)
+├── backup_full.py                     # Zip & save weights
+├── requirements.txt
+└── README.md
+```
+
+## �📈 Results
 
 <!-- RESULTS_TABLE_START -->
 | Model (Noise) | Params | SI-SNR | P@1 | P@5 | EER | AUROC | AUPR | Latency |

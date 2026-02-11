@@ -138,43 +138,34 @@ class EEGPipeline:
         }
 
     def _create_split_dataloaders(self, X_n, X_c, y, test_size=0.2, val_size=0.2):
-        # [FIX] Subject-based split to avoid data leakage from overlapping windows
-        subjects = np.unique(y.numpy())
-        # Shuffle subjects to ensure random split of PEOPLE, not just samples
-        # Note: We rely on the seed set in run_evaluation_suite for reproducibility
-        np.random.shuffle(subjects)
+        # FIX: Stratified SAMPLE split (not subject split) so all subjects appear
+        # in train/val/test → centroid-based accuracy is meaningful.
+        y_np = y.numpy()
+        idx = np.arange(len(y_np))
         
-        n_subs = len(subjects)
-        n_test = max(1, int(n_subs * test_size))
-        n_val = max(1, int(n_subs * val_size))
-        # Ensure train has at least 1
-        if n_subs - n_test - n_val <= 0:
-             n_val = max(0, n_val - 1)
-             if n_subs - n_test - n_val <= 0:
-                 n_test = max(0, n_test - 1)
+        idx_trainval, idx_test = train_test_split(
+            idx, test_size=test_size, stratify=y_np
+        )
+        val_ratio = val_size / (1 - test_size)
+        idx_train, idx_val = train_test_split(
+            idx_trainval, test_size=val_ratio, stratify=y_np[idx_trainval]
+        )
         
-        test_subs = subjects[:n_test]
-        val_subs = subjects[n_test:n_test+n_val]
-        train_subs = subjects[n_test+n_val:]
+        n_subs = len(np.unique(y_np))
+        print(f"    [Split] Subjects: {n_subs} | Train={len(idx_train)} | Val={len(idx_val)} | Test={len(idx_test)}")
         
-        print(f"    [Split] Subjects: Train={len(train_subs)} | Val={len(val_subs)} | Test={len(test_subs)}")
+        train_ds = TensorDataset(X_n[idx_train], X_c[idx_train], y[idx_train])
+        val_ds = TensorDataset(X_n[idx_val], X_c[idx_val], y[idx_val])
+        test_ds = TensorDataset(X_n[idx_test], X_c[idx_test], y[idx_test])
         
-        def filter_data(subs):
-            mask = np.isin(y.numpy(), subs)
-            return X_n[mask], X_c[mask], y[mask]
-
-        Xn_train, Xc_train, y_train = filter_data(train_subs)
-        Xn_val, Xc_val, y_val = filter_data(val_subs)
-        Xn_test, Xc_test, y_test = filter_data(test_subs)
-        
-        train_ds = TensorDataset(Xn_train, Xc_train, y_train)
-        val_ds = TensorDataset(Xn_val, Xc_val, y_val)
-        test_ds = TensorDataset(Xn_test, Xc_test, y_test)
-        
+        use_cuda = self.config.device == "cuda"
         return (
-            DataLoader(train_ds, batch_size=self.config.batch_size, shuffle=True),
-            DataLoader(val_ds, batch_size=self.config.batch_size, shuffle=False),
-            DataLoader(test_ds, batch_size=self.config.batch_size, shuffle=False)
+            DataLoader(train_ds, batch_size=self.config.batch_size, shuffle=True,
+                       pin_memory=use_cuda, num_workers=2, drop_last=True),
+            DataLoader(val_ds, batch_size=self.config.batch_size, shuffle=False,
+                       pin_memory=use_cuda, num_workers=2),
+            DataLoader(test_ds, batch_size=self.config.batch_size, shuffle=False,
+                       pin_memory=use_cuda, num_workers=2)
         )
     
     def _save_results(self, results: List[Dict]):
@@ -240,7 +231,7 @@ def run_one_sample_complete(config: Config):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Neuro-Biometrics v1 pipeline")
     parser.add_argument("--one-sample", action="store_true", help="Run ultra-fast 1-sample completion and write result artifact")
-    parser.add_argument("--epochs", type=int, default=10, help="Stage-2 epochs")
+    parser.add_argument("--epochs", type=int, default=30, help="Stage-2 epochs")
     parser.add_argument("--seeds", type=int, default=3, help="Number of seeds")
     args = parser.parse_args()
 

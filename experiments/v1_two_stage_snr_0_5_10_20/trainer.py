@@ -13,7 +13,7 @@ import time
 
 # Training configuration
 TRAINING_CONFIG = {
-    "stage1_epochs": 20,
+    "stage1_epochs": 30,
     "grad_clip_norm": 1.0,
     "use_amp": True,
     "scheduler_T0": 5,
@@ -98,6 +98,14 @@ class TwoStageTrainer:
         self.sisnr = SISNRLoss()
         self.logger = logger or get_logger("eeg.trainer")
         if not HAS_METRIC: raise ImportError("pip install pytorch-metric-learning")
+
+    def _augment_batch(self, x):
+        """Simple EEG augmentation: noise jitter + random amplitude scaling."""
+        # Small gaussian noise (1% of signal std)
+        noise = 0.01 * x.std() * torch.randn_like(x)
+        # Random per-channel amplitude scaling (0.9 ~ 1.1)
+        scale = 0.9 + 0.2 * torch.rand(x.size(0), x.size(1), 1, device=x.device)
+        return (x + noise) * scale
     
     def train(self, model, train_dl, val_dl, num_classes, loss_type="arcface", 
               noise_type="", model_name="") -> CaseMetrics:
@@ -185,9 +193,11 @@ class TwoStageTrainer:
                 with torch.no_grad():
                     denoised = model.denoiser(noisy)
                 
+                # Augment denoised signal for better embedding generalization
+                denoised_aug = self._augment_batch(denoised)
+                
                 with torch.cuda.amp.autocast(enabled=use_amp):
-                    img_like = denoised.unsqueeze(-1)
-                    emb = model.embedder(img_like)
+                    emb = model.embedder(denoised_aug)
                     loss = metric_loss(emb, y)
                 
                 scaler.scale(loss).backward()

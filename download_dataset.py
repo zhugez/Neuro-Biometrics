@@ -5,7 +5,7 @@ import os
 # ID lấy từ link cậu đưa
 DRIVE_ID = "1V6i8Cq-7ldFtIlDq9T-TlIh6eN6AAP_2" 
 OUTPUT_FILE = "dataset.zip"
-EXTRACT_TO = "./dataset"
+EXTRACT_TO = "./"
 
 def main():
     print(f"⬇️ Đang tải {OUTPUT_FILE} từ Google Drive...")
