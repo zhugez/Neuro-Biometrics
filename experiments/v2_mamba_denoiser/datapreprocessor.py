@@ -137,7 +137,23 @@ class EEGDataLoader:
             "load_start",
             folder=folder_path
         )
-        
+
+        if not os.path.isdir(folder_path):
+            alt_folder = os.path.join(self.config.data_path, "Filtered_Data")
+            if os.path.isdir(alt_folder):
+                self.logger.warning(
+                    "subfolder_missing_using_fallback",
+                    expected=folder_path,
+                    fallback=alt_folder,
+                )
+                folder_path = alt_folder
+            else:
+                raise FileNotFoundError(
+                    f"Dataset folder not found: {folder_path}. "
+                    f"Expected subfolder '{self.config.subfolder}' under data_path='{self.config.data_path}'. "
+                    "Run `python download_dataset.py` (or set Config(data_path=...))."
+                )
+
         for file in os.listdir(folder_path):
             if not file.endswith('.csv'):
                 continue
@@ -150,7 +166,7 @@ class EEGDataLoader:
             file_path = os.path.join(folder_path, file)
             
             try:
-                df = pd.read_csv(file_path)[self.config.electrodes].T.values
+                df = pd.read_csv(file_path)[self.config.electrodes].T.to_numpy(copy=True)
                 info = mne.create_info(
                     ch_names=self.config.electrodes,
                     sfreq=self.config.sfreq,

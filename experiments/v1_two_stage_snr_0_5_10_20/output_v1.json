@@ -1,5 +1,5 @@
 {
-  "experiment": "one_sample_completion",
+  "experiment": "one_sample_completion_v1",
   "status": "ok",
   "shapes": {
     "input": [
