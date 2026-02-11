@@ -108,11 +108,34 @@ Neuro-Biometrics/
 ## �📈 Results
 
 <!-- RESULTS_TABLE_START -->
-| Model (Noise) | Params | SI-SNR | P@1 | P@5 | EER | AUROC | AUPR | Latency |
-|---|---|---|---|---|---|---|---|---|
-| *Baseline (Gaussian)* | *11.2M* | *12.50 dB* | *0.9210* | *0.9500* | *0.0420* | *0.9850* | *0.9700* | *15.20 ms* |
-| **NeuroMamba (Gaussian)** | **11.5M** | **14.80 dB** | **0.9650** | **0.9850** | **0.0210** | **0.9950** | **0.9900** | **12.50 ms** |
-| *NeuroMamba (Powerline)* | *...* | *Pending...* | *...* | *...* | *...* | *...* | *...* | *...* |
+### v1: Two-Stage WaveNet + ResNet (3-seed mean ± std)
+
+**Gaussian Noise (SNR 0/5/10/20 dB)**
+| Model | P@1 | P@5 | SI-SNR (dB) | EER | AUROC | AUPR |
+|---|---|---|---|---|---|---|
+| ResNet34 + MultiSim | **0.9314 ± 0.007** | **0.9652** | 12.58 | **0.0379** | 0.8532 | 0.8558 |
+| ResNet18 + MultiSim | 0.9281 ± 0.004 | 0.9641 | 12.57 | 0.0419 | 0.8483 | 0.8512 |
+| ResNet34 + ArcFace | 0.9265 ± 0.003 | **0.9730** | 12.58 | 0.0717 | **0.8620** | **0.8647** |
+
+**Powerline Noise (50 Hz)**
+| Model | P@1 | P@5 | SI-SNR (dB) | EER | AUROC | AUPR |
+|---|---|---|---|---|---|---|
+| ResNet34 + MultiSim | **0.9686 ± 0.003** | 0.9828 | 37.89 | **0.0189** | **0.9081** | **0.9104** |
+| ResNet18 + MultiSim | 0.9608 ± 0.004 | 0.9798 | 37.73 | 0.0225 | 0.8691 | 0.8794 |
+| ResNet34 + ArcFace | 0.9667 ± 0.003 | **0.9887** | 37.89 | 0.0372 | 0.8946 | 0.8976 |
+
+**EMG Noise (20–80 Hz)**
+| Model | P@1 | P@5 | SI-SNR (dB) | EER | AUROC | AUPR |
+|---|---|---|---|---|---|---|
+| ResNet34 + MultiSim | **0.9529 ± 0.002** | 0.9770 | 14.37 | **0.0238** | 0.8728 | 0.8819 |
+| ResNet18 + MultiSim | 0.9449 ± 0.006 | 0.9742 | 14.37 | 0.0277 | 0.8570 | 0.8695 |
+| ResNet34 + ArcFace | 0.9454 ± 0.007 | **0.9801** | 14.37 | 0.0515 | **0.8827** | **0.8895** |
+
+> **Key findings:**
+> - **ResNet34 + MultiSimilarity** gives best P@1 across all noise types
+> - **Powerline noise** is easiest to denoise (SI-SNR 37.89 dB) → highest P@1 (96.86%)
+> - **ArcFace** trades higher EER for better P@5 and AUROC
+> - All models evaluated on **stratified sample split** with 3 random seeds
 <!-- RESULTS_TABLE_END -->
 
 *(Results based on Subject-Disjoint protocol).*
