@@ -117,13 +117,14 @@ class EEGPipeline:
         
         for k in keys_test:
             vals = [r['test'][k] for r in runs]
-            stats[k] = f"{np.mean(vals):.4f} ± {np.std(vals):.4f}"
+            # Precision: 8 decimals
+            stats[k] = f"{np.mean(vals):.8f} ± {np.std(vals):.8f}"
             stats[f"{k}_mean"] = float(np.mean(vals))
             stats[f"{k}_std"] = float(np.std(vals))
             
         for k in keys_nov:
             vals = [r['novelty'][k] for r in runs]
-            stats[k] = f"{np.mean(vals):.4f} ± {np.std(vals):.4f}"
+            stats[k] = f"{np.mean(vals):.8f} ± {np.std(vals):.8f}"
             stats[f"{k}_mean"] = float(np.mean(vals))
             stats[f"{k}_std"] = float(np.std(vals))
             
@@ -214,7 +215,8 @@ class EEGPipeline:
             params_val = s['params_mean']
             params_str = f"{params_val/1e6:.2f}M" if params_val > 1e6 else f"{params_val/1e3:.1f}K"
             
-            row = f"| {res['model_name']} ({res['noise_type']}) | {params_str} | {s['si_snr_mean']:.2f} dB | {s['p@1_mean']:.4f} | {s['p@5_mean']:.4f} | {s['eer_mean']:.4f} | {s['auroc_mean']:.4f} | {s['aupr_mean']:.4f} | {s['latency_mean']:.2f} ms |"
+            # Use .8f for high precision
+            row = f"| {res['model_name']} ({res['noise_type']}) | {params_str} | {s['si_snr_mean']:.8f} dB | {s['p@1_mean']:.8f} | {s['p@5_mean']:.8f} | {s['eer_mean']:.8f} | {s['auroc_mean']:.8f} | {s['aupr_mean']:.8f} | {s['latency_mean']:.4f} ms |"
             readme_rows.append(row)
             
         print("="*140)
