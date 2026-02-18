@@ -11,6 +11,10 @@ mne
 # Metric Learning Losses
 pytorch-metric-learning
 
+# Mamba (Selective SSM with CUDA kernels)
+causal-conv1d>=1.1.0
+mamba-ssm>=1.2.0
+
 # Utilities
 loguru
 gdown

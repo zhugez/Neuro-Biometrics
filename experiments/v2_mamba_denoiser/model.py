@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Tuple, List
+from typing import Tuple
 from torchvision.models import resnet18, resnet34, resnet50
+from mamba_ssm import Mamba
 
 BACKBONES = {
     "resnet18": resnet18,
@@ -10,118 +11,35 @@ BACKBONES = {
     "resnet50": resnet50,
 }
 
+
 class MambaBlock(nn.Module):
     """
-    Simplified Pure PyTorch Mamba Block (Selective SSM)
-    Uses a standard (slow) sequential scan for compatibility without CUDA kernels.
-    Enhanced with LayerNorm and optional dropout for training stability.
+    Mamba Block using official mamba-ssm CUDA kernels.
+    Wraps mamba_ssm.Mamba to bridge WaveNet's (B, C, L) layout
+    with Mamba's expected (B, L, D) layout.
+    Includes LayerNorm pre-normalization, dropout, and residual connection.
     """
     def __init__(self, d_model, d_state=16, d_conv=4, expand=2, dropout=0.1):
         super().__init__()
-        self.d_model = d_model
-        self.d_inner = int(expand * d_model)
-        self.dt_rank = Variable(torch.ceil(torch.tensor(d_model / 16))).int().item()
-        self.d_state = d_state
-        
-        # Layer normalization for training stability
         self.norm = nn.LayerNorm(d_model)
+        self.mamba = Mamba(
+            d_model=d_model,
+            d_state=d_state,
+            d_conv=d_conv,
+            expand=expand,
+        )
         self.dropout = nn.Dropout(dropout)
 
-        self.in_proj = nn.Linear(d_model, self.d_inner * 2, bias=False)
-
-        self.conv1d = nn.Conv1d(
-            in_channels=self.d_inner,
-            out_channels=self.d_inner,
-            bias=True,
-            kernel_size=d_conv,
-            groups=self.d_inner,
-            padding=d_conv - 1,
-        )
-
-        self.x_proj = nn.Linear(self.d_inner, self.dt_rank + self.d_state * 2, bias=False)
-        self.dt_proj = nn.Linear(self.dt_rank, self.d_inner, bias=True)
-
-        A = torch.arange(1, self.d_state + 1, dtype=torch.float32).repeat(self.d_inner, 1)
-        self.A_log = nn.Parameter(torch.log(A))
-        self.D = nn.Parameter(torch.ones(self.d_inner))
-        self.out_proj = nn.Linear(self.d_inner, d_model, bias=False)
-
-    @torch.jit.export
-    def selective_scan(self, x_branch, dA, dB, C_ssm, d_inner: int, d_state: int):
-        """
-        JIT-compiled scan loop for speedup.
-        """
-        batch, seq_len, _ = x_branch.shape
-        h = torch.zeros(batch, d_inner, d_state, device=x_branch.device)
-        ys = torch.jit.annotate(List[torch.Tensor], [])
-        
-        for t in range(seq_len):
-            h = dA[:, t] * h + dB[:, t] * x_branch[:, t].unsqueeze(-1)
-            # Equivalent to einsum('bls,bds->bd') but JIT-friendly
-            # h: (B, D, N), C: (B, N) -> (B, 1, N)
-            # y = sum(h * C, dim=-1)
-            y = (h * C_ssm[:, t].unsqueeze(1)).sum(dim=-1)
-            ys.append(y)
-            
-        return torch.stack(ys, dim=1)
-
     def forward(self, x):
-        """
-        x: (B, C, L) or (B, L, C). We assume (B, C, L) from Conv1d flows.
-        """
-        # Squeeze inputs: (B, C, L) -> (B, L, C)
-        x_in = x.transpose(1, 2)
-        batch, seq_len, _ = x_in.shape
-        
-        # Apply layer normalization
-        x_normed = self.norm(x_in)
-
-        xz = self.in_proj(x_normed) 
-        x_branch, z_branch = xz.chunk(2, dim=-1)
-
-        # Conv1d expects (B, C, L)
-        x_branch = x_branch.transpose(1, 2)
-        x_branch = self.conv1d(x_branch)[:, :, :seq_len] # Causal padding
-        x_branch = F.silu(x_branch)
-        x_branch = x_branch.transpose(1, 2) # Back to (B, L, C)
-
-        # Selective Scan (Simplified Sequential)
-        # x_dbl: (B, L, dt_rank + 2*d_state)
-        x_dbl = self.x_proj(x_branch)  
-        dt, B_ssm, C_ssm = torch.split(x_dbl, [self.dt_rank, self.d_state, self.d_state], dim=-1)
-        
-        dt = F.softplus(self.dt_proj(dt)) # (B, L, d_inner)
-        
-        A = -torch.exp(self.A_log.float()) # (d_inner, d_state)
-        
-        # Discretize A -> dA (B, L, d_inner, d_state)
-        # We need to broadcast A to (B, L, d_inner, d_state)
-        # dA = exp(dt * A)
-        dA = torch.exp(torch.einsum('bld,ds->blds', dt, A))
-        
-        # Discretize B -> dB (B, L, d_inner, d_state)
-        # dB = dt * B
-        # B_ssm is (B, L, d_state). Broadcast to d_inner.
-        dB = torch.einsum('bld,bls->blds', dt, B_ssm)
-        
-        # Scan (JIT Optimized)
-        y_ssm = self.selective_scan(x_branch, dA, dB, C_ssm, self.d_inner, self.d_state)
-        
-        # Add D residual
-        y_ssm = y_ssm + (x_branch * self.D)
-        
-        # Gating
-        y_out = y_ssm * F.silu(z_branch)
-        
-        out = self.out_proj(y_out)
-        
-        # Apply dropout for regularization
-        out = self.dropout(out)
-        
-        return out.transpose(1, 2) + x # Residual + (B, C, L) output
-
-
-from torch.autograd import Variable
+        """x: (B, C, L) from Conv1d flow."""
+        # (B, C, L) -> (B, L, C) for Mamba
+        residual = x
+        h = x.transpose(1, 2)
+        h = self.norm(h)
+        h = self.mamba(h)
+        h = self.dropout(h)
+        # (B, L, C) -> (B, C, L) + residual
+        return h.transpose(1, 2) + residual
 
 
 class WaveNetBlock(nn.Module):
