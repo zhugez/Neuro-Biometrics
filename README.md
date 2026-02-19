@@ -6,7 +6,7 @@
 **Robust EEG Denoising and Biometric Verification using State Space Models (Mamba) and Metric Learning.**
 
 > 🚀 **Updates:**
-> - [2026-02-18] **v2 Results:** Multi-seed evaluation of Mamba denoiser — ResNet34+ArcFace achieves best P@1 across all noise types
+> - [2026-02-19] **v2 Results:** Multi-seed evaluation of Mamba denoiser (30/30 epochs) — ResNet34+ArcFace achieves best P@1 across all noise types
 > - [2026-02-11] **v1 Major Fix:** Proper 2D reshape for ResNet embedder (was `unsqueeze(-1)` → width=1, now `reshape(B,C,H,W)`)
 > - [2026-02-11] Fixed data split: stratified sample-split (was subject-split causing 0% centroid accuracy)
 > - [2026-02-11] Added training augmentation (noise jitter + amplitude scaling), deeper projection head
@@ -115,66 +115,48 @@ Neuro-Biometrics/
 ## �📈 Results
 
 <!-- RESULTS_TABLE_START -->
-### v1: Two-Stage WaveNet + ResNet (3-seed mean ± std)
-
-**Gaussian Noise (SNR 0/5/10/20 dB)**
-| Model | P@1 | P@5 | SI-SNR (dB) | EER | AUROC | AUPR |
-|---|---|---|---|---|---|---|
-| ResNet34 + MultiSim | **0.9314 ± 0.007** | **0.9652** | 12.58 | **0.0379** | 0.8532 | 0.8558 |
-| ResNet18 + MultiSim | 0.9281 ± 0.004 | 0.9641 | 12.57 | 0.0419 | 0.8483 | 0.8512 |
-| ResNet34 + ArcFace | 0.9265 ± 0.003 | **0.9730** | 12.58 | 0.0717 | **0.8620** | **0.8647** |
-
-**Powerline Noise (50 Hz)**
-| Model | P@1 | P@5 | SI-SNR (dB) | EER | AUROC | AUPR |
-|---|---|---|---|---|---|---|
-| ResNet34 + MultiSim | **0.9686 ± 0.003** | 0.9828 | 37.89 | **0.0189** | **0.9081** | **0.9104** |
-| ResNet18 + MultiSim | 0.9608 ± 0.004 | 0.9798 | 37.73 | 0.0225 | 0.8691 | 0.8794 |
-| ResNet34 + ArcFace | 0.9667 ± 0.003 | **0.9887** | 37.89 | 0.0372 | 0.8946 | 0.8976 |
-
-**EMG Noise (20–80 Hz)**
-| Model | P@1 | P@5 | SI-SNR (dB) | EER | AUROC | AUPR |
-|---|---|---|---|---|---|---|
-| ResNet34 + MultiSim | **0.9529 ± 0.002** | 0.9770 | 14.37 | **0.0238** | 0.8728 | 0.8819 |
-| ResNet18 + MultiSim | 0.9449 ± 0.006 | 0.9742 | 14.37 | 0.0277 | 0.8570 | 0.8695 |
-| ResNet34 + ArcFace | 0.9454 ± 0.007 | **0.9801** | 14.37 | 0.0515 | **0.8827** | **0.8895** |
-
-> **Key findings:**
-> - **ResNet34 + MultiSimilarity** gives best P@1 across all noise types
-> - **Powerline noise** is easiest to denoise (SI-SNR 37.89 dB) → highest P@1 (96.86%)
-> - **ArcFace** trades higher EER for better P@5 and AUROC
-> - All models evaluated on **stratified sample split** with 3 random seeds
+| Model (Noise) | Params | SI-SNR | P@1 | P@5 | EER | AUROC | AUPR | Latency |
+|---|---|---|---|---|---|---|---|---|
+| ResNet34_MultiSim (gaussian) | 21.74M | 12.34384248 dB | 0.81396315 | 0.95949614 | 0.38447895 | 0.46117393 | 0.55686906 | 0.0997 ms |
+| ResNet18_MultiSim (gaussian) | 11.63M | 12.34099215 dB | 0.79324725 | 0.95855165 | 0.40152572 | 0.45103746 | 0.54357453 | 0.0869 ms |
+| ResNet34_ArcFace (gaussian) | 21.74M | 12.34295043 dB | 0.86483344 | 0.97339037 | 0.34040222 | 0.41934955 | 0.52488582 | 0.0999 ms |
+| ResNet34_MultiSim (powerline) | 21.74M | 36.72627652 dB | 0.86843580 | 0.96749538 | 0.35568511 | 0.46377299 | 0.56149379 | 0.1043 ms |
+| ResNet18_MultiSim (powerline) | 11.63M | 36.78491616 dB | 0.85742965 | 0.96944165 | 0.35281986 | 0.45237626 | 0.55622528 | 0.0838 ms |
+| ResNet34_ArcFace (powerline) | 21.74M | 36.66684530 dB | 0.89645645 | 0.97725263 | 0.37505239 | 0.56427098 | 0.61031896 | 0.0982 ms |
+| ResNet34_MultiSim (emg) | 21.74M | 14.11007698 dB | 0.81323737 | 0.95290083 | 0.35979019 | 0.45378748 | 0.54683240 | 0.0989 ms |
+| ResNet18_MultiSim (emg) | 11.63M | 14.11106035 dB | 0.81961975 | 0.96161413 | 0.37129743 | 0.50974680 | 0.58473090 | 0.0847 ms |
+| ResNet34_ArcFace (emg) | 21.74M | 14.11258150 dB | 0.89284706 | 0.97645083 | 0.31109297 | 0.53505019 | 0.61671734 | 0.1009 ms |
 <!-- RESULTS_TABLE_END -->
 
 ### v2: Mamba-Augmented WaveNet + ResNet (3-seed mean ± std)
 
-Experiment config: 20 epochs (Stage 1), 1 epoch (Stage 2), batch 64, holdout subjects {2, 5, 7, 12}.
+Experiment config: 30 epochs (Stage 1), 30 epochs (Stage 2), batch 64, holdout subjects {2, 5, 7, 12}.
 
 **Gaussian Noise**
 | Model | P@1 | P@5 | SI-SNR (dB) | AUROC |
 |---|---|---|---|---|
-| ResNet34 + MultiSim | 0.8227 ± 0.020 | 0.9555 ± 0.007 | 12.24 ± 0.30 | 0.5805 ± 0.114 |
-| ResNet18 + MultiSim | 0.8295 ± 0.016 | 0.9670 ± 0.001 | 12.25 ± 0.32 | 0.5398 ± 0.061 |
-| **ResNet34 + ArcFace** | **0.8457 ± 0.011** | **0.9654 ± 0.005** | **12.26 ± 0.29** | **0.6369 ± 0.069** |
+| ResNet34 + MultiSim | 0.81396315 ± 0.04371831 | 0.95949614 ± 0.01034361 | 12.34384248 ± 0.30732190 | 0.46117393 ± 0.01670227 |
+| ResNet18 + MultiSim | 0.79324725 ± 0.06396291 | 0.95855165 ± 0.00516182 | 12.34099215 ± 0.30929428 | 0.45103746 ± 0.00918813 |
+| **ResNet34 + ArcFace** | **0.86483344 ± 0.04138711** | **0.97339037 ± 0.00775948** | **12.34295043 ± 0.30899014** | **0.41934955 ± 0.01273907** |
 
 **Powerline Noise (50 Hz)**
 | Model | P@1 | P@5 | SI-SNR (dB) | AUROC |
 |---|---|---|---|---|
-| ResNet34 + MultiSim | 0.8565 ± 0.005 | 0.9692 ± 0.003 | 32.81 ± 1.01 | 0.4920 ± 0.045 |
-| ResNet18 + MultiSim | 0.8764 ± 0.006 | 0.9659 ± 0.005 | 32.54 ± 1.06 | 0.4326 ± 0.005 |
-| **ResNet34 + ArcFace** | **0.9013 ± 0.005** | **0.9787 ± 0.005** | **32.34 ± 0.28** | **0.4740 ± 0.026** |
+| ResNet34 + MultiSim | 0.86843580 ± 0.02835965 | 0.96749538 ± 0.01271194 | 36.72627652 ± 1.62453497 | 0.46377299 ± 0.01849189 |
+| ResNet18 + MultiSim | 0.85742965 ± 0.00355056 | 0.96944165 ± 0.00228316 | 36.78491616 ± 1.84745944 | 0.45237626 ± 0.00970946 |
+| **ResNet34 + ArcFace** | **0.89645645 ± 0.01259163** | **0.97725263 ± 0.00295469** | **36.66684530 ± 1.44028252** | **0.56427098 ± 0.09744667** |
 
 **EMG Noise (20–80 Hz)**
 | Model | P@1 | P@5 | SI-SNR (dB) | AUROC |
 |---|---|---|---|---|
-| ResNet34 + MultiSim | 0.8563 ± 0.003 | 0.9696 ± 0.000 | 14.01 ± 0.35 | 0.4674 ± 0.023 |
-| ResNet18 + MultiSim | 0.8203 ± 0.047 | 0.9661 ± 0.008 | 14.03 ± 0.38 | 0.4715 ± 0.021 |
-| **ResNet34 + ArcFace** | **0.8578 ± 0.016** | **0.9741 ± 0.004** | **14.02 ± 0.36** | **0.5301 ± 0.026** |
+| ResNet34 + MultiSim | 0.81323737 ± 0.00297374 | 0.95290083 ± 0.00845641 | 14.11007698 ± 0.36224609 | 0.45378748 ± 0.00423437 |
+| ResNet18 + MultiSim | 0.81961975 ± 0.05267057 | 0.96161413 ± 0.00681186 | 14.11106035 ± 0.37231974 | 0.50974680 ± 0.02916976 |
+| **ResNet34 + ArcFace** | **0.89284706 ± 0.01431596** | **0.97645083 ± 0.00517026** | **14.11258150 ± 0.36649412** | **0.53505019 ± 0.07676603** |
 
 > **Key findings (v2):**
-> - **ResNet34 + ArcFace** achieves best P@1 on all noise types (84.6% / 90.1% / 85.8%)
-> - v2 P@1 is lower than v1 — likely due to fewer Stage 2 epochs (1 vs full training)
-> - **Latency:** ResNet34 ~99ms, ResNet18 ~52ms inference
-> - ArcFace consistently outperforms MultiSimilarity loss on AUROC
+> - **ResNet34 + ArcFace** achieves best P@1 on all noise types (86.5% / 89.6% / 89.3%)
+> - **Latency:** ResNet34 ~100ms, ResNet18 ~85ms inference
+> - AUROC varies by noise type (ArcFace best on powerline and EMG)
 
 *(Results based on Subject-Disjoint protocol).*
 

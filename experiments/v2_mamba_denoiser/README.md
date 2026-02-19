@@ -8,8 +8,8 @@ This repository contains the results of multi-seed comprehensive evaluation of E
 
 | Parameter | Value |
 |-----------|-------|
-| Epochs (Stage 1) | 20 |
-| Epochs (Stage 2) | 1 |
+| Epochs (Stage 1) | 30 |
+| Epochs (Stage 2) | 30 |
 | Batch Size | 64 |
 | Holdout Subjects | 2, 5, 7, 12 |
 | Seeds | 1, 2, 3 |
@@ -20,25 +20,25 @@ This repository contains the results of multi-seed comprehensive evaluation of E
 
 | Model | p@1 | p@5 | SI-SNR (dB) | AUROC |
 |-------|-----|-----|-------------|-------|
-| ResNet34_MultiSim | 0.8227 ± 0.0199 | 0.9555 ± 0.0073 | 12.24 ± 0.30 | 0.5805 ± 0.1139 |
-| ResNet18_MultiSim | 0.8295 ± 0.0164 | 0.9670 ± 0.0005 | 12.25 ± 0.32 | 0.5398 ± 0.0611 |
-| **ResNet34_ArcFace** | **0.8457 ± 0.0111** | **0.9654 ± 0.0049** | **12.26 ± 0.29** | **0.6369 ± 0.0692** |
+| ResNet34_MultiSim | 0.81396315 ± 0.04371831 | 0.95949614 ± 0.01034361 | 12.34384248 ± 0.30732190 | 0.46117393 ± 0.01670227 |
+| ResNet18_MultiSim | 0.79324725 ± 0.06396291 | 0.95855165 ± 0.00516182 | 12.34099215 ± 0.30929428 | 0.45103746 ± 0.00918813 |
+| **ResNet34_ArcFace** | **0.86483344 ± 0.04138711** | **0.97339037 ± 0.00775948** | **12.34295043 ± 0.30899014** | **0.41934955 ± 0.01273907** |
 
 ### Powerline Noise
 
 | Model | p@1 | p@5 | SI-SNR (dB) | AUROC |
 |-------|-----|-----|-------------|-------|
-| ResNet34_MultiSim | 0.8565 ± 0.0045 | 0.9692 ± 0.0030 | 32.81 ± 1.01 | 0.4920 ± 0.0448 |
-| ResNet18_MultiSim | 0.8764 ± 0.0063 | 0.9659 ± 0.0054 | 32.54 ± 1.06 | 0.4326 ± 0.0050 |
-| **ResNet34_ArcFace** | **0.9013 ± 0.0054** | **0.9787 ± 0.0048** | **32.34 ± 0.28** | **0.4740 ± 0.0264** |
+| ResNet34_MultiSim | 0.86843580 ± 0.02835965 | 0.96749538 ± 0.01271194 | 36.72627652 ± 1.62453497 | 0.46377299 ± 0.01849189 |
+| ResNet18_MultiSim | 0.85742965 ± 0.00355056 | 0.96944165 ± 0.00228316 | 36.78491616 ± 1.84745944 | 0.45237626 ± 0.00970946 |
+| **ResNet34_ArcFace** | **0.89645645 ± 0.01259163** | **0.97725263 ± 0.00295469** | **36.66684530 ± 1.44028252** | **0.56427098 ± 0.09744667** |
 
 ### EMG Noise
 
 | Model | p@1 | p@5 | SI-SNR (dB) | AUROC |
 |-------|-----|-----|-------------|-------|
-| ResNet34_MultiSim | 0.8563 ± 0.0034 | 0.9696 ± 0.0002 | 14.01 ± 0.35 | 0.4674 ± 0.0231 |
-| ResNet18_MultiSim | 0.8203 ± 0.0473 | 0.9661 ± 0.0080 | 14.03 ± 0.38 | 0.4715 ± 0.0207 |
-| **ResNet34_ArcFace** | **0.8578 ± 0.0159** | **0.9741 ± 0.0038** | **14.02 ± 0.36** | **0.5301 ± 0.0255** |
+| ResNet34_MultiSim | 0.81323737 ± 0.00297374 | 0.95290083 ± 0.00845641 | 14.11007698 ± 0.36224609 | 0.45378748 ± 0.00423437 |
+| ResNet18_MultiSim | 0.81961975 ± 0.05267057 | 0.96161413 ± 0.00681186 | 14.11106035 ± 0.37231974 | 0.50974680 ± 0.02916976 |
+| **ResNet34_ArcFace** | **0.89284706 ± 0.01431596** | **0.97645083 ± 0.00517026** | **14.11258150 ± 0.36649412** | **0.53505019 ± 0.07676603** |
 
 ## Key Findings
 
@@ -46,41 +46,41 @@ This repository contains the results of multi-seed comprehensive evaluation of E
 
 | Noise Type | Best Model | Top-1 Accuracy | Top-5 Accuracy |
 |------------|------------|----------------|----------------|
-| Gaussian | ResNet34_ArcFace | 84.57% | 96.54% |
-| Powerline | ResNet34_ArcFace | 90.13% | 97.87% |
-| EMG | ResNet34_ArcFace | 85.78% | 97.41% |
+| Gaussian | ResNet34_ArcFace | 86.48% | 97.34% |
+| Powerline | ResNet34_ArcFace | 89.65% | 97.73% |
+| EMG | ResNet34_ArcFace | 89.28% | 97.65% |
 
 ### Detailed Metrics
 
 #### ResNet34_ArcFace - Gaussian Noise
-- **Top-1 Accuracy**: 84.57% ± 1.11%
-- **Top-5 Accuracy**: 96.54% ± 0.49%
-- **SI-SNR**: 12.26 ± 0.29 dB
-- **EER**: 34.46% ± 3.43%
-- **AUROC**: 0.637 ± 0.069
-- **AUPR**: 0.638 ± 0.088
-- **TAR@FAR=1%**: 95.60% ± 2.57%
-- **FRR**: 4.40% ± 2.57%
+- **Top-1 Accuracy**: 86.48% ± 4.14%
+- **Top-5 Accuracy**: 97.34% ± 0.78%
+- **SI-SNR**: 12.34 ± 0.31 dB
+- **EER**: 34.04% ± 1.34%
+- **AUROC**: 0.419 ± 0.013
+- **AUPR**: 0.525 ± 0.010
+- **TAR**: 94.23% ± 0.07%
+- **FRR**: 5.77% ± 0.07%
 
 #### ResNet34_ArcFace - Powerline Noise
-- **Top-1 Accuracy**: 90.13% ± 0.54%
-- **Top-5 Accuracy**: 97.87% ± 0.48%
-- **SI-SNR**: 32.34 ± 0.28 dB
-- **EER**: 37.30% ± 1.36%
-- **AUROC**: 0.474 ± 0.026
-- **AUPR**: 0.490 ± 0.023
-- **TAR@FAR=1%**: 94.77% ± 1.41%
-- **FRR**: 5.23% ± 1.41%
+- **Top-1 Accuracy**: 89.65% ± 1.26%
+- **Top-5 Accuracy**: 97.73% ± 0.30%
+- **SI-SNR**: 36.67 ± 1.44 dB
+- **EER**: 37.51% ± 2.14%
+- **AUROC**: 0.564 ± 0.097
+- **AUPR**: 0.610 ± 0.069
+- **TAR**: 89.25% ± 8.81%
+- **FRR**: 10.75% ± 8.81%
 
 #### ResNet34_ArcFace - EMG Noise
-- **Top-1 Accuracy**: 85.78% ± 1.59%
-- **Top-5 Accuracy**: 97.41% ± 0.38%
-- **SI-SNR**: 14.02 ± 0.36 dB
-- **EER**: 34.75% ± 3.80%
-- **AUROC**: 0.530 ± 0.026
-- **AUPR**: 0.539 ± 0.024
-- **TAR@FAR=1%**: 95.70% ± 2.34%
-- **FRR**: 4.30% ± 2.34%
+- **Top-1 Accuracy**: 89.28% ± 1.43%
+- **Top-5 Accuracy**: 97.65% ± 0.52%
+- **SI-SNR**: 14.11 ± 0.37 dB
+- **EER**: 31.11% ± 0.21%
+- **AUROC**: 0.535 ± 0.077
+- **AUPR**: 0.617 ± 0.070
+- **TAR**: 94.28% ± 1.25%
+- **FRR**: 5.72% ± 1.25%
 
 ## Model Architecture Details
 
@@ -93,9 +93,9 @@ This repository contains the results of multi-seed comprehensive evaluation of E
 
 | Model | Parameters | Inference Latency (ms) |
 |-------|------------|------------------------|
-| ResNet34_MultiSim | 21.7M | ~99 |
-| ResNet18_MultiSim | 11.2M | ~52 |
-| ResNet34_ArcFace | 21.7M | ~99 |
+| ResNet34_MultiSim | 21.7M | ~101 |
+| ResNet18_MultiSim | 11.6M | ~85 |
+| ResNet34_ArcFace | 21.7M | ~100 |
 
 ## File Structure
 
@@ -122,4 +122,4 @@ The ArcFace loss function provides better feature discrimination compared to Mul
 
 ---
 
-*Generated: 2026-02-18*
+*Generated: 2026-02-19*

@@ -27,3 +27,7 @@ Thumbs.db
 !results/
 !output*.json
 !*.png
+
+# Local artifacts
+artifacts/
+experiments/v2_mamba_denoiser/output_v2_mamba.json
