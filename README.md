@@ -9,6 +9,7 @@
 > - [2026-02-19] Refactored: extracted `experiments/shared/` module, V1/V2 are now thin wrappers (-2082 lines)
 > - [2026-02-19] Fixed: deprecated AMP API, P@5 metric (CMC@5 → true Precision@5), dead code cleanup
 > - [2026-02-19] Google Drive backup via [gogcli](https://github.com/steipete/gogcli)
+> - [2026-02-19] Updated V1 + V2 training results in README
 > - [2026-02-19] Added V1 baseline results (30/30 epochs)
 > - [2026-02-11] Integrated **Mamba SSM** into WaveNet denoiser (V2)
 
