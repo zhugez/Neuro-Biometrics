@@ -276,11 +276,12 @@ V1 uses the same WaveNet denoiser and ResNet embedder, but **without Mamba** and
 
 ### Key Findings
 
-- **ResNet34 + ArcFace** achieves best P@1 across all noise types (**86.5% / 89.6% / 89.3%**)
-- ArcFace outperforms MultiSimilarity for verification (higher AUROC on powerline + EMG)
-- SI-SNR is similar across models (denoiser converges independently of embedder choice)
+- **ResNet34 + ArcFace** consistently best across all noise types (V2: **80.4% / 89.4% / 85.2%** P@1)
+- **Mamba improves identification** by +2–5% P@1, largest gain on EMG noise (+5.1%)
+- **SI-SNR nearly identical** between V1 and V2 (~12.3 / 37.1 / 14.0 dB) — Mamba doesn't improve raw denoising, but helps downstream embeddings
+- **AUROC remains weak** (0.42–0.56) — verification requires stronger inter-class separation (contrastive loss, hard mining)
+- **ArcFace > MultiSimilarity** for both identification (P@1) and verification (AUROC)
 - Latency: ResNet34 ~100µs, ResNet18 ~85µs per inference
-- ⚠️ These are **V2 pre-fix** results. Updated metrics pending retraining with corrected embedder.
 
 ---
 
