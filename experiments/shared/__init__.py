@@ -1,0 +1,1 @@
+# Shared EEG pipeline components
