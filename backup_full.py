@@ -11,14 +11,14 @@ def zip_weights():
     zip_name = f"weights_backup_{timestamp}.zip"
     
     dirs_to_check = [
-        "experiments/v1_two_stage_snr_0_5_10_20/weights",
-        "experiments/v2_mamba_denoiser/weights",
+        "experiments/v1_baseline/weights",
+        "experiments/v2_mamba/weights",
         "weights"
     ]
     
     extra_files = [
-        "experiments/v2_mamba_denoiser/output_v2_mamba.json",
-        "experiments/v2_mamba_denoiser/README.md",
+        "experiments/v2_mamba/output_v2_mamba.json",
+        "experiments/v2_mamba/README.md",
         "README.md",
     ]
     

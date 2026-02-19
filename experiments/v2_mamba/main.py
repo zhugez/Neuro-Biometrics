@@ -403,13 +403,13 @@ if __name__ == "__main__":
     print(f"Device: {config.device}")
 
     if args.smoke:
-        print("Usage: python experiments/v2_mamba_denoiser/main.py --smoke")
+        print("Usage: python experiments/v2_mamba/main.py --smoke")
         run_smoke_test(config)
     elif args.mini_train:
-        print("Usage: python experiments/v2_mamba_denoiser/main.py --mini-train")
+        print("Usage: python experiments/v2_mamba/main.py --mini-train")
         run_mini_train(config)
     elif args.one_sample:
-        print("Usage: python experiments/v2_mamba_denoiser/main.py --one-sample")
+        print("Usage: python experiments/v2_mamba/main.py --one-sample")
         run_one_sample_complete(config)
     else:
         pipeline = EEGPipeline(config)
