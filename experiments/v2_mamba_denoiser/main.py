@@ -185,7 +185,7 @@ class EEGPipeline:
         output = {
             "experiment": "Multi-Seed Comprehensive Evaluation",
             "config": {
-                "epochs_stage1": 20,
+                "epochs_stage1": 30,
                 "epochs_stage2": self.config.epochs,
                 "batch_size": self.config.batch_size,
                 "holdout_subjects": self.config.holdout_subjects
@@ -390,7 +390,7 @@ if __name__ == "__main__":
     parser.add_argument("--smoke", action="store_true", help="Run tiny synthetic smoke test and exit")
     parser.add_argument("--mini-train", action="store_true", help="Run tiny synthetic 1-epoch end-to-end train sanity test and exit")
     parser.add_argument("--one-sample", action="store_true", help="Run ultra-fast 1-sample completion and write result artifact")
-    parser.add_argument("--epochs", type=int, default=1, help="Stage-2 epochs for normal run")
+    parser.add_argument("--epochs", type=int, default=30, help="Stage-2 epochs for normal run")
     parser.add_argument("--seeds", type=int, default=2, help="Number of seeds for normal run")
     args = parser.parse_args()
 

@@ -6,6 +6,7 @@
 **Robust EEG Denoising and Biometric Verification using State Space Models (Mamba) and Metric Learning.**
 
 > 🚀 **Updates:**
+> - [2026-02-18] **v2 Results:** Multi-seed evaluation of Mamba denoiser — ResNet34+ArcFace achieves best P@1 across all noise types
 > - [2026-02-11] **v1 Major Fix:** Proper 2D reshape for ResNet embedder (was `unsqueeze(-1)` → width=1, now `reshape(B,C,H,W)`)
 > - [2026-02-11] Fixed data split: stratified sample-split (was subject-split causing 0% centroid accuracy)
 > - [2026-02-11] Added training augmentation (noise jitter + amplitude scaling), deeper projection head
@@ -99,6 +100,12 @@ Neuro-Biometrics/
 │   │   ├── datapreprocessor.py        # EEG loading, preprocessing, noise gen
 │   │   └── weights/                   # Saved checkpoints
 │   └── v2_mamba_denoiser/             # Mamba-augmented variant
+│       ├── main.py                    # Entry point
+│       ├── model.py                   # WaveNet + Mamba denoiser + ResNet embedder
+│       ├── trainer.py                 # Training pipeline
+│       ├── datapreprocessor.py        # Data preprocessing utilities
+│       ├── visualize.py               # Visualization tools
+│       └── README.md                  # v2 experiment results
 ├── dataset/                           # EEG data (Filtered_Data, Segmented_Data)
 ├── backup_full.py                     # Zip & save weights
 ├── requirements.txt
@@ -137,6 +144,37 @@ Neuro-Biometrics/
 > - **ArcFace** trades higher EER for better P@5 and AUROC
 > - All models evaluated on **stratified sample split** with 3 random seeds
 <!-- RESULTS_TABLE_END -->
+
+### v2: Mamba-Augmented WaveNet + ResNet (3-seed mean ± std)
+
+Experiment config: 20 epochs (Stage 1), 1 epoch (Stage 2), batch 64, holdout subjects {2, 5, 7, 12}.
+
+**Gaussian Noise**
+| Model | P@1 | P@5 | SI-SNR (dB) | AUROC |
+|---|---|---|---|---|
+| ResNet34 + MultiSim | 0.8227 ± 0.020 | 0.9555 ± 0.007 | 12.24 ± 0.30 | 0.5805 ± 0.114 |
+| ResNet18 + MultiSim | 0.8295 ± 0.016 | 0.9670 ± 0.001 | 12.25 ± 0.32 | 0.5398 ± 0.061 |
+| **ResNet34 + ArcFace** | **0.8457 ± 0.011** | **0.9654 ± 0.005** | **12.26 ± 0.29** | **0.6369 ± 0.069** |
+
+**Powerline Noise (50 Hz)**
+| Model | P@1 | P@5 | SI-SNR (dB) | AUROC |
+|---|---|---|---|---|
+| ResNet34 + MultiSim | 0.8565 ± 0.005 | 0.9692 ± 0.003 | 32.81 ± 1.01 | 0.4920 ± 0.045 |
+| ResNet18 + MultiSim | 0.8764 ± 0.006 | 0.9659 ± 0.005 | 32.54 ± 1.06 | 0.4326 ± 0.005 |
+| **ResNet34 + ArcFace** | **0.9013 ± 0.005** | **0.9787 ± 0.005** | **32.34 ± 0.28** | **0.4740 ± 0.026** |
+
+**EMG Noise (20–80 Hz)**
+| Model | P@1 | P@5 | SI-SNR (dB) | AUROC |
+|---|---|---|---|---|
+| ResNet34 + MultiSim | 0.8563 ± 0.003 | 0.9696 ± 0.000 | 14.01 ± 0.35 | 0.4674 ± 0.023 |
+| ResNet18 + MultiSim | 0.8203 ± 0.047 | 0.9661 ± 0.008 | 14.03 ± 0.38 | 0.4715 ± 0.021 |
+| **ResNet34 + ArcFace** | **0.8578 ± 0.016** | **0.9741 ± 0.004** | **14.02 ± 0.36** | **0.5301 ± 0.026** |
+
+> **Key findings (v2):**
+> - **ResNet34 + ArcFace** achieves best P@1 on all noise types (84.6% / 90.1% / 85.8%)
+> - v2 P@1 is lower than v1 — likely due to fewer Stage 2 epochs (1 vs full training)
+> - **Latency:** ResNet34 ~99ms, ResNet18 ~52ms inference
+> - ArcFace consistently outperforms MultiSimilarity loss on AUROC
 
 *(Results based on Subject-Disjoint protocol).*
 

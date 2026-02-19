@@ -13,7 +13,7 @@ import time
 
 # Training configuration
 TRAINING_CONFIG = {
-    "stage1_epochs": 20,
+    "stage1_epochs": 30,
     "grad_clip_norm": 1.0,
     "use_amp": True,
     "scheduler_T0": 5,
