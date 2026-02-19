@@ -5,6 +5,16 @@ import shutil
 import subprocess
 import argparse
 
+# Auto-load .env file (GOG_KEYRING_PASSWORD, etc.)
+_env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+if os.path.exists(_env_path):
+    with open(_env_path) as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if _line and not _line.startswith("#") and "=" in _line:
+                _k, _v = _line.split("=", 1)
+                os.environ.setdefault(_k.strip(), _v.strip())
+
 # --- PHẦN 1: ZIP WEIGHTS ---
 def zip_weights():
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
