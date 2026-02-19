@@ -128,6 +128,11 @@ python experiments/v2_mamba/main.py --mini-train
 
 ### 4. Backup Weights
 
+**Setup (one-time):** Create `.env` in project root:
+```bash
+echo 'GOG_KEYRING_PASSWORD=neuro2024' > .env
+```
+
 ```bash
 # Zip only (auto-saves to /kaggle/working/ on Kaggle)
 python backup_full.py
@@ -135,6 +140,8 @@ python backup_full.py
 # Zip + upload to Google Drive
 python backup_full.py --gdrive --account you@gmail.com
 ```
+
+> 💡 `backup_full.py` auto-loads `.env` — no manual `export` needed.
 
 <details>
 <summary>📋 One-time Google Drive setup</summary>
@@ -148,7 +155,6 @@ python backup_full.py --gdrive --account you@gmail.com
 
 3. Authenticate:
    ```bash
-   export GOG_KEYRING_PASSWORD='your_password'
    gog auth keyring file
    gog auth credentials client_secret.json
    gog auth add you@gmail.com --services drive --manual
@@ -174,6 +180,7 @@ Neuro-Biometrics/
 │       ├── main.py               # run_cli(use_mamba=True)
 │       └── README.md             # V2 detailed results
 ├── dataset/                      # EEG data (gitignored)
+├── .env                          # Secrets: GOG_KEYRING_PASSWORD (gitignored)
 ├── backup_full.py                # Zip & upload weights to Google Drive
 ├── download_dataset.py           # Download dataset from Google Drive
 ├── requirements.txt
