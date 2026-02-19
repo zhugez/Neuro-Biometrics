@@ -19,7 +19,3 @@ mamba-ssm>=1.2.0
 loguru
 gdown
 tqdm
-
-# Google Drive Backup
-google-api-python-client
-google-auth-oauthlib

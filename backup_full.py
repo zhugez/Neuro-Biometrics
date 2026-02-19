@@ -2,7 +2,7 @@ import zipfile
 import os
 import datetime
 import shutil
-import json
+import subprocess
 import argparse
 
 # --- PHẦN 1: ZIP WEIGHTS ---
@@ -16,7 +16,6 @@ def zip_weights():
         "weights"
     ]
     
-    # Also backup result JSONs and READMEs
     extra_files = [
         "experiments/v2_mamba_denoiser/output_v2_mamba.json",
         "experiments/v2_mamba_denoiser/README.md",
@@ -26,7 +25,6 @@ def zip_weights():
     print(f"📦 [1/3] Đang nén file weights vào: {zip_name}...")
     count = 0
     with zipfile.ZipFile(zip_name, 'w', zipfile.ZIP_DEFLATED) as zipf:
-        # Zip weight files
         for folder in dirs_to_check:
             if os.path.exists(folder):
                 for root, _, files in os.walk(folder):
@@ -38,7 +36,6 @@ def zip_weights():
                             count += 1
                             print(f"  + {arcname}")
         
-        # Zip extra files (results, READMEs)
         for f in extra_files:
             if os.path.exists(f):
                 zipf.write(f, f)
@@ -56,7 +53,6 @@ def zip_weights():
 
 # --- PHẦN 2: COPY TO KAGGLE OUTPUT ---
 def save_to_kaggle(filepath):
-    """Copy zip vào /kaggle/working/ để Kaggle tự lưu khi commit."""
     output_dir = "/kaggle/working"
     if not os.path.isdir(output_dir):
         print(f"\n📂 [2/3] Không tìm thấy {output_dir} (không phải Kaggle env). Bỏ qua.")
@@ -73,81 +69,92 @@ def save_to_kaggle(filepath):
         print(f"  📍 {dest}")
 
 
-# --- PHẦN 3: UPLOAD TO GOOGLE DRIVE ---
-def upload_to_gdrive(filepath, client_secret_path, folder_id=None):
-    """Upload file lên Google Drive sử dụng OAuth2 client secret."""
+# --- PHẦN 3: UPLOAD TO GOOGLE DRIVE via gogcli ---
+def _check_gog():
+    """Check if gog CLI is installed."""
     try:
-        from google.oauth2.credentials import Credentials
-        from google_auth_oauthlib.flow import InstalledAppFlow
-        from google.auth.transport.requests import Request
-        from googleapiclient.discovery import build
-        from googleapiclient.http import MediaFileUpload
-    except ImportError:
-        print("\n☁️  [3/3] Thiếu thư viện Google API. Cài đặt:")
-        print("  pip install google-api-python-client google-auth-oauthlib")
+        r = subprocess.run(["gog", "--version"], capture_output=True, text=True, timeout=5)
+        if r.returncode == 0:
+            print(f"  ✓ gogcli: {r.stdout.strip()}")
+            return True
+    except FileNotFoundError:
+        pass
+    print("  ❌ gogcli chưa được cài đặt.")
+    print("  Cài đặt: https://github.com/steipete/gogcli")
+    print("  Linux:   curl -sL https://github.com/steipete/gogcli/releases/latest/download/gogcli_0.11.0_linux_amd64.tar.gz | tar xz -C /usr/local/bin gog")
+    return False
+
+
+def _setup_gog_auth(client_secret_path, account):
+    """Setup gogcli credentials and auth if not already done."""
+    # Step 1: Store credentials
+    print(f"  � Nạp credentials từ {os.path.basename(client_secret_path)}...")
+    r = subprocess.run(
+        ["gog", "auth", "credentials", client_secret_path],
+        capture_output=True, text=True, timeout=10
+    )
+    if r.returncode != 0:
+        print(f"  ⚠️ credentials: {r.stderr.strip()}")
+    
+    # Step 2: Check if already authenticated
+    r = subprocess.run(
+        ["gog", "auth", "status"],
+        capture_output=True, text=True, timeout=10,
+        env={**os.environ, "GOG_ACCOUNT": account}
+    )
+    if r.returncode == 0 and account in (r.stdout + r.stderr):
+        print(f"  ✓ Đã xác thực: {account}")
+        return True
+    
+    # Step 3: Auth with manual flow (for headless/remote servers)
+    print(f"\n  🔑 Xác thực tài khoản {account}...")
+    print("  (Sử dụng manual flow - copy URL vào trình duyệt)\n")
+    r = subprocess.run(
+        ["gog", "auth", "add", account, "--services", "user", "--manual"],
+        timeout=300  # 5 min timeout for user interaction
+    )
+    return r.returncode == 0
+
+
+def upload_to_gdrive(filepath, client_secret_path, account, folder_id=None):
+    """Upload file lên Google Drive sử dụng gogcli."""
+    print(f"\n☁️  [3/3] Google Drive Upload")
+    
+    if not _check_gog():
         return False
     
-    SCOPES = ['https://www.googleapis.com/auth/drive.file']
-    TOKEN_PATH = os.path.join(os.path.dirname(client_secret_path), 'token.json')
+    if not _setup_gog_auth(client_secret_path, account):
+        print("  ❌ Xác thực thất bại!")
+        return False
     
-    creds = None
-    
-    # Load existing token
-    if os.path.exists(TOKEN_PATH):
-        creds = Credentials.from_authorized_user_file(TOKEN_PATH, SCOPES)
-    
-    # Refresh or create new token
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            print("  🔄 Refreshing expired token...")
-            creds.refresh(Request())
-        else:
-            print("  🔑 Mở trình duyệt để xác thực Google Drive...")
-            print("  (Nếu không có trình duyệt, chạy trên máy local trước rồi copy token.json)")
-            flow = InstalledAppFlow.from_client_secrets_file(client_secret_path, SCOPES)
-            try:
-                creds = flow.run_local_server(port=0, open_browser=True)
-            except Exception:
-                # Fallback for headless environments (Kaggle, SSH, etc.)
-                print("  ⚠️ Không mở được trình duyệt. Dùng console flow...")
-                creds = flow.run_console()
-        
-        # Save token for next time
-        with open(TOKEN_PATH, 'w') as token:
-            token.write(creds.to_json())
-        print(f"  ✓ Token saved to {TOKEN_PATH}")
-    
-    # Build Drive service
-    service = build('drive', 'v3', credentials=creds)
-    
-    # Upload file
+    # Upload
     file_size_mb = os.path.getsize(filepath) / (1024 * 1024)
     filename = os.path.basename(filepath)
-    print(f"\n☁️  [3/3] Uploading {filename} ({file_size_mb:.1f} MB) to Google Drive...")
+    print(f"\n  ⬆️  Uploading {filename} ({file_size_mb:.1f} MB)...")
     
-    file_metadata = {'name': filename}
+    cmd = ["gog", "drive", "upload", filepath]
     if folder_id:
-        file_metadata['parents'] = [folder_id]
+        cmd.extend(["--parent", folder_id])
     
-    media = MediaFileUpload(filepath, resumable=True)
-    file = service.files().create(
-        body=file_metadata,
-        media_body=media,
-        fields='id, name, webViewLink'
-    ).execute()
+    env = {**os.environ, "GOG_ACCOUNT": account}
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=600, env=env)
     
-    print(f"  ✅ Upload thành công!")
-    print(f"  📎 File ID: {file.get('id')}")
-    if file.get('webViewLink'):
-        print(f"  🔗 Link: {file.get('webViewLink')}")
-    
-    return True
+    if r.returncode == 0:
+        print(f"  ✅ Upload thành công!")
+        if r.stdout.strip():
+            print(f"  {r.stdout.strip()}")
+        return True
+    else:
+        print(f"  ❌ Upload thất bại: {r.stderr.strip()}")
+        return False
 
 
 # --- MAIN ---
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Backup weights & upload to Google Drive")
-    parser.add_argument("--gdrive", action="store_true", help="Upload to Google Drive")
+    parser.add_argument("--gdrive", action="store_true", help="Upload to Google Drive via gogcli")
+    parser.add_argument("--account", type=str, default=None,
+                        help="Google account email (e.g. you@gmail.com)")
     parser.add_argument("--client-secret", type=str, 
                         default="client_secret_830574298098-vk4kcodn9jvrdsdh58bcfoccgt73qikg.apps.googleusercontent.com.json",
                         help="Path to Google OAuth client secret JSON")
@@ -157,19 +164,19 @@ if __name__ == "__main__":
     
     zip_file = zip_weights()
     if zip_file:
-        # Step 2: save to Kaggle if available
         save_to_kaggle(zip_file)
         
-        # Step 3: upload to Google Drive if requested
         if args.gdrive:
-            if not os.path.exists(args.client_secret):
-                print(f"\n❌ Không tìm thấy file client secret: {args.client_secret}")
-                print("  Đặt file JSON vào thư mục gốc của project.")
+            if not args.account:
+                print("\n❌ Cần chỉ định --account (email Google)")
+                print("   Ví dụ: python backup_full.py --gdrive --account you@gmail.com")
+            elif not os.path.exists(args.client_secret):
+                print(f"\n❌ Không tìm thấy: {args.client_secret}")
             else:
-                upload_to_gdrive(zip_file, args.client_secret, args.folder_id)
+                upload_to_gdrive(zip_file, args.client_secret, args.account, args.folder_id)
         else:
-            print("\n💡 Để upload lên Google Drive, thêm flag --gdrive:")
-            print(f"   python backup_full.py --gdrive")
+            print("\n💡 Để upload lên Google Drive:")
+            print(f"   python backup_full.py --gdrive --account you@gmail.com")
         
         print(f"\n✅ HOÀN TẤT!")
     else:
