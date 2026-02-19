@@ -196,8 +196,7 @@ class TwoStageTrainer:
                 denoised_aug = self._augment_batch(denoised)
                 
                 with torch.cuda.amp.autocast(enabled=use_amp):
-                    img_like = denoised_aug.unsqueeze(-1)
-                    emb = model.embedder(img_like)
+                    emb = model.embedder(denoised_aug)
                     loss = metric_loss(emb, y)
                 
                 scaler.scale(loss).backward()
