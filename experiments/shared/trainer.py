@@ -128,10 +128,21 @@ class TwoStageTrainer:
         self.logger = logger or get_logger("eeg.trainer")
 
     def _augment_batch(self, x: torch.Tensor) -> torch.Tensor:
-        """EEG augmentation: gaussian jitter + random amplitude scaling."""
+        """EEG augmentation: gaussian jitter, amplitude scaling, time shift, channel dropout."""
+        B, C, T = x.shape
+        # Gaussian jitter
         noise = 0.01 * x.std() * torch.randn_like(x)
-        scale = 0.9 + 0.2 * torch.rand(x.size(0), x.size(1), 1, device=x.device)
-        return (x + noise) * scale
+        # Amplitude scaling
+        scale = 0.9 + 0.2 * torch.rand(B, C, 1, device=x.device)
+        x = (x + noise) * scale
+        # Time shift ±50 samples (±0.25 sec at 200 Hz) — temporal invariance
+        shifts = torch.randint(-50, 51, (B,)).tolist()
+        x = torch.stack([torch.roll(x[i], shifts[i], dims=-1) for i in range(B)])
+        # Channel dropout: zero 1 of C channels with p=0.2 — electrode robustness
+        if torch.rand(1).item() < 0.2:
+            ch = torch.randint(0, C, (1,)).item()
+            x[:, ch, :] = 0.0
+        return x
 
     def train(self, model, train_dl, val_dl, num_classes,
               loss_type="arcface", noise_type="", model_name="") -> CaseMetrics:
@@ -204,7 +215,8 @@ class TwoStageTrainer:
         if loss_type == "arcface":
             metric_loss = ArcFaceLoss(
                 num_classes, self.config.embed_dim,
-                margin=0.3, scale=30,
+                margin=self.config.arcface_margin,
+                scale=self.config.arcface_scale,
             ).to(self.device)
             params = list(model.embedder.parameters()) + list(metric_loss.parameters())
         else:
@@ -324,9 +336,42 @@ class TwoStageTrainer:
             lbls.append(y)
         return accuracy_centroid(torch.cat(embs), torch.cat(lbls), centroids.cpu())
 
+    def _tta_adapt(self, model) -> None:
+        """Enable BN layers to update running stats from test data (TTA warm-up).
+
+        Call model.embedder.train() before forward to let BN absorb test
+        distribution, then restore eval() for the actual embedding pass.
+        Only BN momentum is used — no gradient update, no label needed.
+        """
+        for m in model.embedder.modules():
+            if isinstance(m, torch.nn.BatchNorm1d) or isinstance(m, torch.nn.BatchNorm2d):
+                m.reset_running_stats()
+
+    def _eval_p1_with_tta(self, model, dl: DataLoader, tta_steps: int = 1) -> float:
+        """Precision@1 with Test-Time BN Adaptation.
+
+        For each batch: one warm-up forward in train() mode updates BN stats,
+        then a second forward in eval() uses those adapted stats for embedding.
+        This corrects the train/test distribution shift for holdout subjects.
+        """
+        model.to(self.device)
+        embs, lbls = [], []
+        for noisy, _, y in dl:
+            noisy = noisy.to(self.device)
+            # Warm-up: update BN running stats with this test batch (no grad)
+            model.embedder.train()
+            with torch.no_grad():
+                _ = model.embedder(model.denoiser(noisy))
+            # Inference: use the just-adapted BN stats
+            model.embedder.eval()
+            with torch.no_grad():
+                _, emb = model(noisy)
+            embs.append(emb.cpu())
+            lbls.append(y)
+        return p_at_1(torch.cat(embs), torch.cat(lbls))
+
     @torch.no_grad()
     def evaluate(self, model, dl, train_dl=None, num_classes=None) -> Dict:
-        """Quick evaluation returning p@1, si_snr, and optional accuracy."""
         model.to(self.device).eval()
         embs, lbls, sisnr_sum, n = [], [], 0.0, 0
         for noisy, clean, y in dl:

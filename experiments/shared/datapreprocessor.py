@@ -72,7 +72,7 @@ class Config:
     patience: int = 7
 
     # Model
-    embed_dim: int = 128
+    embed_dim: int = 256
     dropout: float = 0.3
 
     # Denoiser
@@ -80,8 +80,8 @@ class Config:
     wavenet_layers_per_block: int = 4
 
     # Metric learning
-    arcface_margin: float = 0.3
-    arcface_scale: float = 30.0
+    arcface_margin: float = 0.5
+    arcface_scale: float = 64.0
 
     # Output
     log_file: str = "output.json"

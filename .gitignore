@@ -29,3 +29,10 @@ artifacts/
 .env
 token.json
 client_secret*.json
+
+# AI Assistant Files
+.agent/
+.claude/
+CLAUDE.md
+GEMINI.md
+.gemini/

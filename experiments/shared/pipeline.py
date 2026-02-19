@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Dict, List
 
 import numpy as np
+import scipy.stats as _scipy_stats
 import torch
 import random
 
@@ -116,12 +117,24 @@ class EEGPipeline:
             stats[k] = f"{np.mean(vals):.8f} ± {np.std(vals):.8f}"
             stats[f"{k}_mean"] = float(np.mean(vals))
             stats[f"{k}_std"] = float(np.std(vals))
+            if len(vals) > 1:
+                ci = _scipy_stats.t.interval(
+                    0.95, df=len(vals) - 1,
+                    loc=np.mean(vals), scale=_scipy_stats.sem(vals)
+                )
+                stats[f"{k}_ci95"] = (float(ci[0]), float(ci[1]))
 
         for k in keys_nov:
             vals = [r['novelty'][k] for r in runs]
             stats[k] = f"{np.mean(vals):.8f} ± {np.std(vals):.8f}"
             stats[f"{k}_mean"] = float(np.mean(vals))
             stats[f"{k}_std"] = float(np.std(vals))
+            if len(vals) > 1:
+                ci = _scipy_stats.t.interval(
+                    0.95, df=len(vals) - 1,
+                    loc=np.mean(vals), scale=_scipy_stats.sem(vals)
+                )
+                stats[f"{k}_ci95"] = (float(ci[0]), float(ci[1]))
 
         best_run = max(runs, key=lambda x: x['test']['p@1'])
         return {
