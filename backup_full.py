@@ -70,10 +70,22 @@ def save_to_kaggle(filepath):
 
 
 # --- PHẦN 3: UPLOAD TO GOOGLE DRIVE via gogcli ---
+GOG_KEYRING_PASSWORD = os.environ.get("GOG_KEYRING_PASSWORD", "neuro2024")
+
+
+def _gog_env(account=None):
+    """Build env dict for gog subprocess calls."""
+    env = {**os.environ, "GOG_KEYRING_PASSWORD": GOG_KEYRING_PASSWORD}
+    if account:
+        env["GOG_ACCOUNT"] = account
+    return env
+
+
 def _check_gog():
     """Check if gog CLI is installed."""
     try:
-        r = subprocess.run(["gog", "--version"], capture_output=True, text=True, timeout=5)
+        r = subprocess.run(["gog", "--version"], capture_output=True, text=True, 
+                          timeout=5, env=_gog_env())
         if r.returncode == 0:
             print(f"  ✓ gogcli: {r.stdout.strip()}")
             return True
@@ -87,20 +99,21 @@ def _check_gog():
 
 def _setup_gog_auth(client_secret_path, account):
     """Setup gogcli credentials and auth if not already done."""
+    env = _gog_env(account)
+    
     # Step 1: Store credentials
-    print(f"  � Nạp credentials từ {os.path.basename(client_secret_path)}...")
+    print(f"  🔧 Nạp credentials từ {os.path.basename(client_secret_path)}...")
     r = subprocess.run(
         ["gog", "auth", "credentials", client_secret_path],
-        capture_output=True, text=True, timeout=10
+        capture_output=True, text=True, timeout=10, env=env
     )
     if r.returncode != 0:
         print(f"  ⚠️ credentials: {r.stderr.strip()}")
     
-    # Step 2: Check if already authenticated
+    # Step 2: Check if already authenticated for drive
     r = subprocess.run(
         ["gog", "auth", "status"],
-        capture_output=True, text=True, timeout=10,
-        env={**os.environ, "GOG_ACCOUNT": account}
+        capture_output=True, text=True, timeout=10, env=env
     )
     if r.returncode == 0 and account in (r.stdout + r.stderr):
         print(f"  ✓ Đã xác thực: {account}")
@@ -110,8 +123,8 @@ def _setup_gog_auth(client_secret_path, account):
     print(f"\n  🔑 Xác thực tài khoản {account}...")
     print("  (Sử dụng manual flow - copy URL vào trình duyệt)\n")
     r = subprocess.run(
-        ["gog", "auth", "add", account, "--services", "user", "--manual"],
-        timeout=300  # 5 min timeout for user interaction
+        ["gog", "auth", "add", account, "--services", "drive", "--manual"],
+        timeout=300, env=env
     )
     return r.returncode == 0
 
@@ -128,6 +141,7 @@ def upload_to_gdrive(filepath, client_secret_path, account, folder_id=None):
         return False
     
     # Upload
+    env = _gog_env(account)
     file_size_mb = os.path.getsize(filepath) / (1024 * 1024)
     filename = os.path.basename(filepath)
     print(f"\n  ⬆️  Uploading {filename} ({file_size_mb:.1f} MB)...")
@@ -136,7 +150,6 @@ def upload_to_gdrive(filepath, client_secret_path, account, folder_id=None):
     if folder_id:
         cmd.extend(["--parent", folder_id])
     
-    env = {**os.environ, "GOG_ACCOUNT": account}
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=600, env=env)
     
     if r.returncode == 0:
@@ -156,7 +169,7 @@ if __name__ == "__main__":
     parser.add_argument("--account", type=str, default=None,
                         help="Google account email (e.g. you@gmail.com)")
     parser.add_argument("--client-secret", type=str, 
-                        default="client_secret_830574298098-vk4kcodn9jvrdsdh58bcfoccgt73qikg.apps.googleusercontent.com.json",
+                        default="client_secret.json",
                         help="Path to Google OAuth client secret JSON")
     parser.add_argument("--folder-id", type=str, default=None,
                         help="Google Drive folder ID to upload to (optional)")

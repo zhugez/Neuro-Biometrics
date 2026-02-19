@@ -3,7 +3,7 @@ dataset/
 *.zip
 *.tar.gz
 
-# Weights (Heavy)
+# Weights
 weights/
 *.pth
 *.pt
@@ -15,22 +15,16 @@ __pycache__/
 .venv/
 venv/
 
-# Logs (Ignore large raw logs, keep summaries)
+# Logs
 *.log
-output_*.json
 
 # System
 .DS_Store
 Thumbs.db
 
-# Keep Results and Configs
-!results/
-!output*.json
-!*.png
-
 # Local artifacts
 artifacts/
 
-# OAuth credentials (SENSITIVE - never commit!)
+# OAuth credentials (sensitive)
 token.json
 client_secret*.json

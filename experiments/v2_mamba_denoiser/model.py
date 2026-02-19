@@ -73,7 +73,6 @@ class WaveNetDenoiser(nn.Module):
                 # Check if we should insert Mamba here
                 if use_mamba and current_layer == mamba_pos:
                     self.blocks.append(MambaBlock(hidden))
-                    print(f"  [Model] Inserted MambaBlock after layer {current_layer}")
                     
         self.output_conv = nn.Sequential(
             nn.ReLU(),
@@ -93,13 +92,12 @@ class ResNetMetricEmbedder(nn.Module):
         super().__init__()
         weights = "IMAGENET1K_V1" if pretrained else None
         base = BACKBONES[backbone](weights=weights)
-        # FIX: smaller conv1 (3x3 stride=1) + remove maxpool for small 2D EEG inputs
+        # Smaller conv1 + no maxpool — preserves spatial info for small EEG inputs
         base.conv1 = nn.Conv2d(in_chans, 64, kernel_size=3, stride=1, padding=1, bias=False)
         base.maxpool = nn.Identity()
         nfeat = base.fc.in_features
         base.fc = nn.Identity()
         self.backbone = base
-        # FIX: Deeper projection head for better embedding quality
         self.head = nn.Sequential(
             nn.Linear(nfeat, 256),
             nn.ReLU(inplace=True),
@@ -119,8 +117,7 @@ class ResNetMetricEmbedder(nn.Module):
         return 1, n
 
     def forward(self, x):
-        # FIX: reshape (B, C, T) -> (B, C, H, W) for proper 2D spatial convolutions
-        # Old code used unsqueeze(-1) giving (B,C,T,1) with width=1 -> ResNet can't learn
+        # Reshape (B, C, T) -> (B, C, H, W) for 2D convolutions
         B, C, T = x.shape
         H, W = self._find_2d_shape(T)
         x = x.view(B, C, H, W)
@@ -131,14 +128,12 @@ class ResNetMetricEmbedder(nn.Module):
 class EEGMetricModel(nn.Module):
     def __init__(self, filter_model, embedder_model):
         super().__init__()
-        self.filter_model = filter_model
-        self.embedder_model = embedder_model
         self.denoiser = filter_model
         self.embedder = embedder_model
 
     def forward(self, x) -> Tuple[torch.Tensor, torch.Tensor]:
-        denoised = self.filter_model(x)
-        emb = self.embedder_model(denoised)  # embedder handles (B,C,T)->2D internally
+        denoised = self.denoiser(x)
+        emb = self.embedder(denoised)
         return denoised, emb
 
 def create_metric_model(backbone="resnet18", n_channels=4, embed_dim=128, pretrained=True, use_mamba=False):
