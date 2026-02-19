@@ -6,7 +6,8 @@
 **Robust EEG Denoising and Biometric Verification using State Space Models (Mamba) and Metric Learning.**
 
 > 🚀 **Latest:**
-> - [2026-02-19] Fixed critical V2 embedder bugs (conv1, reshape, projection head)
+> - [2026-02-19] Refactored: extracted `experiments/shared/` module, V1/V2 are now thin wrappers (-2082 lines)
+> - [2026-02-19] Fixed: deprecated AMP API, P@5 metric (CMC@5 → true Precision@5), dead code cleanup
 > - [2026-02-19] Google Drive backup via [gogcli](https://github.com/steipete/gogcli)
 > - [2026-02-11] Integrated **Mamba SSM** into WaveNet denoiser (V2)
 
@@ -105,13 +106,25 @@ python download_dataset.py
 python experiments/v1_baseline/main.py --epochs 30 --seeds 3
 
 # V2 Mamba: WaveNet + Mamba + ResNet
-python experiments/v2_mamba/main.py
-
-# Quick smoke test
-python experiments/v1_baseline/main.py --one-sample
+python experiments/v2_mamba/main.py --epochs 30 --seeds 2
 ```
 
-### 3. Backup Weights
+### 3. Quick Tests
+
+```bash
+# Ultra-fast forward pass (1 sample, no training)
+python experiments/v2_mamba/main.py --one-sample
+
+# Synthetic smoke test (forward + dataloader)
+python experiments/v2_mamba/main.py --smoke
+
+# Tiny 1-epoch training sanity check
+python experiments/v2_mamba/main.py --mini-train
+```
+
+> 💡 All `--smoke`, `--one-sample`, `--mini-train` flags work for both V1 and V2.
+
+### 4. Backup Weights
 
 ```bash
 # Zip only (auto-saves to /kaggle/working/ on Kaggle)
@@ -148,16 +161,15 @@ python backup_full.py --gdrive --account you@gmail.com
 ```
 Neuro-Biometrics/
 ├── experiments/
-│   ├── v1_baseline/              # V1: WaveNet denoiser + ResNet embedder
-│   │   ├── main.py               # Training entry point
-│   │   ├── model.py              # WaveNetDenoiser, ResNetMetricEmbedder
-│   │   ├── trainer.py            # TwoStageTrainer (SI-SNR → metric learning)
-│   │   └── datapreprocessor.py   # EEG loading, noise generation
-│   └── v2_mamba/                 # V2: + Mamba block in denoiser
-│       ├── main.py               # Training entry point
-│       ├── model.py              # WaveNetDenoiser + MambaBlock, ResNetMetricEmbedder
-│       ├── trainer.py            # TwoStageTrainer + augmentation
-│       ├── datapreprocessor.py   # EEG loading, noise generation
+│   ├── shared/                   # Shared code (zero duplication)
+│   │   ├── model.py              # WaveNetDenoiser, MambaBlock, ResNetMetricEmbedder
+│   │   ├── trainer.py            # TwoStageTrainer, SISNRLoss, metrics
+│   │   ├── datapreprocessor.py   # Config, EEG loading, noise generation
+│   │   └── pipeline.py           # EEGPipeline, smoke/mini/one-sample, CLI
+│   ├── v1_baseline/              # V1: WaveNet only (thin wrapper)
+│   │   └── main.py               # run_cli(use_mamba=False)
+│   └── v2_mamba/                 # V2: WaveNet + Mamba (thin wrapper)
+│       ├── main.py               # run_cli(use_mamba=True)
 │       └── README.md             # V2 detailed results
 ├── dataset/                      # EEG data (gitignored)
 ├── backup_full.py                # Zip & upload weights to Google Drive
@@ -165,6 +177,8 @@ Neuro-Biometrics/
 ├── requirements.txt
 └── README.md
 ```
+
+> 💡 **V1 and V2 are identical** except the `use_mamba` flag. All model, trainer, data, and pipeline logic lives in `experiments/shared/`.
 
 ---
 
