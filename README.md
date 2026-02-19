@@ -9,7 +9,7 @@
 > - [2026-02-19] Refactored: extracted `experiments/shared/` module, V1/V2 are now thin wrappers (-2082 lines)
 > - [2026-02-19] Fixed: deprecated AMP API, P@5 metric (CMC@5 → true Precision@5), dead code cleanup
 > - [2026-02-19] Google Drive backup via [gogcli](https://github.com/steipete/gogcli)
-> - [2026-02-19] Updated V1 + V2 training results in README (latest V2 run)
+> - [2026-02-19] Updated V1 + V2 training results in README (V2 rerun @ 17:16)
 > - [2026-02-19] Added V1 baseline results (30/30 epochs)
 > - [2026-02-11] Integrated **Mamba SSM** into WaveNet denoiser (V2)
 
@@ -204,25 +204,25 @@ V2 adds a **MambaBlock** at the midpoint of the WaveNet denoiser + training augm
 
 | Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ | EER ↓ |
 |---|---|---|---|---|---|
-| ResNet34 + MultiSim | 0.780 ± 0.060 | 0.752 ± 0.067 | 12.30 ± 0.25 | 0.462 ± 0.073 | — |
-| ResNet18 + MultiSim | 0.781 ± 0.040 | 0.763 ± 0.047 | 12.31 ± 0.25 | 0.519 ± 0.043 | — |
-| **ResNet34 + ArcFace** | **0.804 ± 0.051** | **0.781 ± 0.060** | 12.30 ± 0.25 | 0.479 ± 0.047 | **37.8%** |
+| ResNet34 + MultiSim | 0.800 ± 0.043 | 0.774 ± 0.049 | 12.40 ± 0.24 | 0.454 ± 0.058 | — |
+| ResNet18 + MultiSim | 0.793 ± 0.073 | 0.764 ± 0.076 | 12.40 ± 0.23 | 0.481 ± 0.062 | — |
+| **ResNet34 + ArcFace** | **0.822 ± 0.052** | **0.800 ± 0.058** | 12.40 ± 0.24 | **0.528 ± 0.062** | **39.1%** |
 
 #### Powerline Noise (50 Hz)
 
 | Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ | EER ↓ |
 |---|---|---|---|---|---|
-| ResNet34 + MultiSim | 0.830 ± 0.047 | 0.799 ± 0.052 | 37.11 ± 1.41 | 0.466 ± 0.041 | — |
-| ResNet18 + MultiSim | 0.846 ± 0.050 | 0.813 ± 0.067 | 37.20 ± 1.50 | 0.508 ± 0.027 | — |
-| **ResNet34 + ArcFace** | **0.894 ± 0.041** | **0.871 ± 0.049** | 37.13 ± 1.57 | **0.558 ± 0.059** | **34.0%** |
+| ResNet34 + MultiSim | 0.871 ± 0.041 | 0.841 ± 0.043 | 37.32 ± 1.73 | 0.481 ± 0.054 | — |
+| ResNet18 + MultiSim | 0.837 ± 0.052 | 0.809 ± 0.059 | 37.32 ± 1.85 | 0.531 ± 0.044 | — |
+| **ResNet34 + ArcFace** | **0.873 ± 0.042** | **0.854 ± 0.049** | 37.22 ± 1.77 | **0.580 ± 0.063** | **39.6%** |
 
 #### EMG Noise (20–80 Hz)
 
 | Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ | EER ↓ |
 |---|---|---|---|---|---|
-| ResNet34 + MultiSim | 0.807 ± 0.048 | 0.771 ± 0.056 | 14.02 ± 0.33 | 0.442 ± 0.020 | — |
-| ResNet18 + MultiSim | 0.790 ± 0.045 | 0.765 ± 0.043 | 14.03 ± 0.32 | 0.469 ± 0.032 | — |
-| **ResNet34 + ArcFace** | **0.852 ± 0.026** | **0.825 ± 0.033** | 14.02 ± 0.33 | **0.494 ± 0.097** | **34.4%** |
+| ResNet34 + MultiSim | 0.822 ± 0.044 | 0.792 ± 0.037 | 14.16 ± 0.32 | 0.553 ± 0.050 | — |
+| ResNet18 + MultiSim | 0.806 ± 0.056 | 0.781 ± 0.063 | 14.16 ± 0.31 | 0.501 ± 0.078 | — |
+| **ResNet34 + ArcFace** | **0.849 ± 0.055** | **0.826 ± 0.060** | 14.16 ± 0.32 | **0.587 ± 0.078** | **38.0%** |
 
 ### V1: Baseline — WaveNet Only (30/30 epochs)
 
@@ -260,9 +260,9 @@ V1 uses the same WaveNet denoiser and ResNet embedder, but **without Mamba** and
 | **Stage 1 epochs** | 30 | 30 |
 | **Stage 2 epochs** | 30 | 30 |
 | **Training augmentation** | ❌ None | ✅ Noise jitter + amplitude scaling |
-| **Best P@1 (Gaussian)** | **78.5%** | **80.4%** |
-| **Best P@1 (Powerline)** | **87.4%** | **89.4%** |
-| **Best P@1 (EMG)** | **80.1%** | **85.2%** |
+| **Best P@1 (Gaussian)** | **78.5%** | **82.2%** |
+| **Best P@1 (Powerline)** | **87.4%** | **87.3%** |
+| **Best P@1 (EMG)** | **80.1%** | **84.9%** |
 
 ### Metric Definitions
 
@@ -276,12 +276,11 @@ V1 uses the same WaveNet denoiser and ResNet embedder, but **without Mamba** and
 
 ### Key Findings
 
-- **ResNet34 + ArcFace** consistently best across all noise types (V2: **80.4% / 89.4% / 85.2%** P@1)
-- **Mamba improves identification** by +2–5% P@1, largest gain on EMG noise (+5.1%)
+- **ResNet34 + ArcFace** remains strongest for V2 on P@1 and AUROC across all noise types
+- **Mamba improves identification** on Gaussian/EMG (+3.7pp / +4.8pp P@1), while Powerline is roughly on par (-0.1pp)
 - **SI-SNR nearly identical** between V1 and V2 (~12.3 / 37.1 / 14.0 dB) — Mamba doesn't improve raw denoising, but helps downstream embeddings
-- **AUROC remains weak** (0.42–0.56) — verification requires stronger inter-class separation (contrastive loss, hard mining)
-- **ArcFace > MultiSimilarity** for both identification (P@1) and verification (AUROC)
-- Latency: ResNet34 ~100µs, ResNet18 ~85µs per inference
+- **AUROC still moderate** (best ~0.58) — verification can improve with harder negatives and score calibration
+- Latency: ResNet34 ~0.21–0.23 ms, ResNet18 ~0.19–0.21 ms per inference
 
 ---
 
