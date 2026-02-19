@@ -157,8 +157,9 @@ Experiment config: 30 epochs (Stage 1), 30 epochs (Stage 2), batch 64, holdout s
 > - **ResNet34 + ArcFace** achieves best P@1 on all noise types (86.5% / 89.6% / 89.3%)
 > - **Latency:** ResNet34 ~100ms, ResNet18 ~85ms inference
 > - AUROC varies by noise type (ArcFace best on powerline and EMG)
+> - Latest metrics (2026-02-19) drawn from `artifacts/output_v2_mamba.json` multi-seed evaluation (30 epochs per stage, holdout {2,5,7,12}).
 
-*(Results based on Subject-Disjoint protocol).*
+*(Results based on Subject-Disjoint protocol).* 
 
 ## 📜 Citation
 
