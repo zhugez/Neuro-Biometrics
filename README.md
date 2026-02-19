@@ -9,6 +9,7 @@
 > - [2026-02-19] Refactored: extracted `experiments/shared/` module, V1/V2 are now thin wrappers (-2082 lines)
 > - [2026-02-19] Fixed: deprecated AMP API, P@5 metric (CMC@5 → true Precision@5), dead code cleanup
 > - [2026-02-19] Google Drive backup via [gogcli](https://github.com/steipete/gogcli)
+> - [2026-02-19] Added V1 baseline results (30/30 epochs)
 > - [2026-02-11] Integrated **Mamba SSM** into WaveNet denoiser (V2)
 
 ---
@@ -215,26 +216,45 @@ V2 adds a **MambaBlock** at the midpoint of the WaveNet denoiser + training augm
 | ResNet18 + MultiSim | 0.820 ± 0.053 | 0.962 ± 0.007 | 14.11 ± 0.37 | 0.510 ± 0.029 | — |
 | **ResNet34 + ArcFace** | **0.893 ± 0.014** | **0.976 ± 0.005** | 14.11 ± 0.37 | **0.535 ± 0.077** | **31.1%** |
 
-### V1: Baseline — WaveNet Only (20/30 epochs)
+### V1: Baseline — WaveNet Only (30/30 epochs)
 
 V1 uses the same WaveNet denoiser and ResNet embedder, but **without Mamba** and without training augmentation.
 
-> ⏳ **V1 results pending** — experiment chưa chạy. Chạy lệnh:
-> ```bash
-> python experiments/v1_baseline/main.py --epochs 30 --seeds 3
-> ```
+#### Gaussian Noise
+
+| Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ | EER ↓ |
+|---|---|---|---|---|---|
+| ResNet34 + MultiSim | 0.739 ± 0.056 | 0.704 ± 0.056 | 12.28 ± 0.27 | 0.446 ± 0.048 | — |
+| ResNet18 + MultiSim | 0.743 ± 0.061 | 0.724 ± 0.062 | 12.27 ± 0.27 | 0.505 ± 0.072 | — |
+| **ResNet34 + ArcFace** | **0.785 ± 0.019** | **0.763 ± 0.009** | 12.28 ± 0.27 | 0.462 ± 0.124 | **35.2%** |
+
+#### Powerline Noise (50 Hz)
+
+| Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ | EER ↓ |
+|---|---|---|---|---|---|
+| ResNet34 + MultiSim | 0.806 ± 0.032 | 0.767 ± 0.030 | 37.09 ± 1.47 | 0.504 ± 0.044 | — |
+| ResNet18 + MultiSim | 0.837 ± 0.044 | 0.807 ± 0.048 | 37.08 ± 1.76 | 0.475 ± 0.024 | — |
+| **ResNet34 + ArcFace** | **0.874 ± 0.041** | **0.855 ± 0.043** | 37.09 ± 1.47 | 0.420 ± 0.060 | **37.7%** |
+
+#### EMG Noise (20–80 Hz)
+
+| Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ | EER ↓ |
+|---|---|---|---|---|---|
+| ResNet34 + MultiSim | 0.786 ± 0.010 | 0.746 ± 0.012 | 13.95 ± 0.35 | 0.481 ± 0.040 | — |
+| ResNet18 + MultiSim | 0.752 ± 0.052 | 0.733 ± 0.060 | 13.96 ± 0.34 | 0.490 ± 0.024 | — |
+| **ResNet34 + ArcFace** | **0.801 ± 0.044** | **0.786 ± 0.046** | 13.95 ± 0.35 | 0.467 ± 0.106 | **35.4%** |
 
 ### V1 vs V2 Comparison
 
 | Feature | V1 Baseline | V2 Mamba |
 |---|---|---|
 | **Denoiser** | WaveNet only | WaveNet + MambaBlock |
-| **Stage 1 epochs** | 20 | 30 |
+| **Stage 1 epochs** | 30 | 30 |
 | **Stage 2 epochs** | 30 | 30 |
 | **Training augmentation** | ❌ None | ✅ Noise jitter + amplitude scaling |
-| **Best P@1 (Gaussian)** | *pending* | **86.5%** |
-| **Best P@1 (Powerline)** | *pending* | **89.6%** |
-| **Best P@1 (EMG)** | *pending* | **89.3%** |
+| **Best P@1 (Gaussian)** | **78.5%** | **86.5%** |
+| **Best P@1 (Powerline)** | **87.4%** | **89.6%** |
+| **Best P@1 (EMG)** | **80.1%** | **89.3%** |
 
 ### Metric Definitions
 
