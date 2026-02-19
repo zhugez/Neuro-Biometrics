@@ -70,7 +70,7 @@ class Config:
     epochs: int = 30
     learning_rate: float = 3e-4
     weight_decay: float = 1e-4
-    patience: int = 10
+    patience: int = 7
     
     # Model
     lstm_hidden: int = 128
@@ -218,6 +218,7 @@ class EEGPreprocessor:
             filter_low=self.config.filter_low,
             filter_high=self.config.filter_high
         )
+
         
         for subject in eeg_data:
             preprocessed[subject] = {}

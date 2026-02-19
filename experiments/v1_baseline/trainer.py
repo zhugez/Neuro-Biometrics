@@ -97,8 +97,6 @@ class TwoStageTrainer:
         self.device = torch.device(config.device)
         self.sisnr = SISNRLoss()
         self.logger = logger or get_logger("eeg.trainer")
-        if not HAS_METRIC: raise ImportError("pip install pytorch-metric-learning")
-
     def _augment_batch(self, x):
         """Simple EEG augmentation: noise jitter + random amplitude scaling."""
         # Small gaussian noise (1% of signal std)
@@ -106,6 +104,7 @@ class TwoStageTrainer:
         # Random per-channel amplitude scaling (0.9 ~ 1.1)
         scale = 0.9 + 0.2 * torch.rand(x.size(0), x.size(1), 1, device=x.device)
         return (x + noise) * scale
+
     
     def train(self, model, train_dl, val_dl, num_classes, loss_type="arcface", 
               noise_type="", model_name="") -> CaseMetrics:
@@ -322,19 +321,6 @@ class TwoStageTrainer:
     def compute_threshold(self, model, val_dl, centroids, percentile=95):
         """
         Compute distance threshold for novelty detection based on validation set.
-        
-        Uses the distances from validation embeddings to their nearest centroids,
-        returning the given percentile as the threshold. Samples with distances
-        above this threshold will be classified as unknown/novel.
-        
-        Args:
-            model: The trained model
-            val_dl: Validation DataLoader
-            centroids: Class centroids tensor
-            percentile: Percentile of distances to use as threshold (default: 95)
-            
-        Returns:
-            float: Distance threshold value
         """
         model.to(self.device).eval()
         centroids = centroids.to(self.device)
@@ -436,10 +422,15 @@ class TwoStageTrainer:
             idx = np.random.choice(len(scores), 1_000_000, replace=False)
             scores = scores[idx]
             labels = labels[idx]
-            
-        fpr, tpr, roc_thresh = roc_curve(labels, scores)
-        fpr_det, fnr_det, det_thresh = det_curve(labels, scores)
-        eer = fpr[np.nanargmin(np.abs(fpr - (1 - tpr)))]
+        
+        if len(labels) == 0 or len(np.unique(labels)) < 2:
+            fpr, tpr, roc_thresh = np.array([0.0, 1.0]), np.array([0.0, 1.0]), np.array([0.0, 0.0])
+            fpr_det, fnr_det, det_thresh = np.array([0.0, 1.0]), np.array([1.0, 0.0]), np.array([0.0, 0.0])
+            eer = 0.0
+        else:
+            fpr, tpr, roc_thresh = roc_curve(labels, scores)
+            fpr_det, fnr_det, det_thresh = det_curve(labels, scores)
+            eer = fpr[np.nanargmin(np.abs(fpr - (1 - tpr)))]
         
         # 5. Robustness Breakdown
         robustness = {}

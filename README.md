@@ -170,32 +170,57 @@ Neuro-Biometrics/
 
 ## 📈 Results
 
-> Multi-seed evaluation (3 seeds). Config: 30/30 epochs (Stage 1/2), batch 64, holdout subjects {2, 5, 7, 12}.
-> Subject-disjoint protocol — holdout subjects are never seen during training.
+> **Protocol:** Subject-disjoint — holdout subjects {2, 5, 7, 12} never seen during training.
+> Multi-seed evaluation (3 seeds), best model highlighted per noise type.
 
-### Gaussian Noise
+### V2: Mamba-Augmented Denoiser (30/30 epochs)
 
-| Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ |
-|---|---|---|---|---|
-| ResNet34 + MultiSim | 0.814 ± 0.044 | 0.959 ± 0.010 | 12.34 ± 0.31 | 0.461 ± 0.017 |
-| ResNet18 + MultiSim | 0.793 ± 0.064 | 0.959 ± 0.005 | 12.34 ± 0.31 | 0.451 ± 0.009 |
-| **ResNet34 + ArcFace** | **0.865 ± 0.041** | **0.973 ± 0.008** | **12.34 ± 0.31** | 0.419 ± 0.013 |
+V2 adds a **MambaBlock** at the midpoint of the WaveNet denoiser + training augmentation (noise jitter, amplitude scaling).
 
-### Powerline Noise (50 Hz)
+#### Gaussian Noise
 
-| Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ |
-|---|---|---|---|---|
-| ResNet34 + MultiSim | 0.868 ± 0.028 | 0.967 ± 0.013 | 36.73 ± 1.62 | 0.464 ± 0.018 |
-| ResNet18 + MultiSim | 0.857 ± 0.004 | 0.969 ± 0.002 | 36.78 ± 1.85 | 0.452 ± 0.010 |
-| **ResNet34 + ArcFace** | **0.896 ± 0.013** | **0.977 ± 0.003** | 36.67 ± 1.44 | **0.564 ± 0.097** |
+| Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ | EER ↓ |
+|---|---|---|---|---|---|
+| ResNet34 + MultiSim | 0.814 ± 0.044 | 0.959 ± 0.010 | 12.34 ± 0.31 | 0.461 ± 0.017 | — |
+| ResNet18 + MultiSim | 0.793 ± 0.064 | 0.959 ± 0.005 | 12.34 ± 0.31 | 0.451 ± 0.009 | — |
+| **ResNet34 + ArcFace** | **0.865 ± 0.041** | **0.973 ± 0.008** | 12.34 ± 0.31 | 0.419 ± 0.013 | **34.0%** |
 
-### EMG Noise (20–80 Hz)
+#### Powerline Noise (50 Hz)
 
-| Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ |
-|---|---|---|---|---|
-| ResNet34 + MultiSim | 0.813 ± 0.003 | 0.953 ± 0.008 | 14.11 ± 0.36 | 0.454 ± 0.004 |
-| ResNet18 + MultiSim | 0.820 ± 0.053 | 0.962 ± 0.007 | 14.11 ± 0.37 | 0.510 ± 0.029 |
-| **ResNet34 + ArcFace** | **0.893 ± 0.014** | **0.976 ± 0.005** | **14.11 ± 0.37** | **0.535 ± 0.077** |
+| Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ | EER ↓ |
+|---|---|---|---|---|---|
+| ResNet34 + MultiSim | 0.868 ± 0.028 | 0.967 ± 0.013 | 36.73 ± 1.62 | 0.464 ± 0.018 | — |
+| ResNet18 + MultiSim | 0.857 ± 0.004 | 0.969 ± 0.002 | 36.78 ± 1.85 | 0.452 ± 0.010 | — |
+| **ResNet34 + ArcFace** | **0.896 ± 0.013** | **0.977 ± 0.003** | 36.67 ± 1.44 | **0.564 ± 0.097** | **37.5%** |
+
+#### EMG Noise (20–80 Hz)
+
+| Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ | EER ↓ |
+|---|---|---|---|---|---|
+| ResNet34 + MultiSim | 0.813 ± 0.003 | 0.953 ± 0.008 | 14.11 ± 0.36 | 0.454 ± 0.004 | — |
+| ResNet18 + MultiSim | 0.820 ± 0.053 | 0.962 ± 0.007 | 14.11 ± 0.37 | 0.510 ± 0.029 | — |
+| **ResNet34 + ArcFace** | **0.893 ± 0.014** | **0.976 ± 0.005** | 14.11 ± 0.37 | **0.535 ± 0.077** | **31.1%** |
+
+### V1: Baseline — WaveNet Only (20/30 epochs)
+
+V1 uses the same WaveNet denoiser and ResNet embedder, but **without Mamba** and without training augmentation.
+
+> ⏳ **V1 results pending** — experiment chưa chạy. Chạy lệnh:
+> ```bash
+> python experiments/v1_baseline/main.py --epochs 30 --seeds 3
+> ```
+
+### V1 vs V2 Comparison
+
+| Feature | V1 Baseline | V2 Mamba |
+|---|---|---|
+| **Denoiser** | WaveNet only | WaveNet + MambaBlock |
+| **Stage 1 epochs** | 20 | 30 |
+| **Stage 2 epochs** | 30 | 30 |
+| **Training augmentation** | ❌ None | ✅ Noise jitter + amplitude scaling |
+| **Best P@1 (Gaussian)** | *pending* | **86.5%** |
+| **Best P@1 (Powerline)** | *pending* | **89.6%** |
+| **Best P@1 (EMG)** | *pending* | **89.3%** |
 
 ### Metric Definitions
 
