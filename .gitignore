@@ -31,3 +31,6 @@ Thumbs.db
 # Local artifacts
 artifacts/
 
+# OAuth credentials (SENSITIVE - never commit!)
+token.json
+client_secret*.json
