@@ -166,7 +166,8 @@ class TwoStageTrainer:
         )
 
         use_amp = TRAINING_CONFIG["use_amp"] and self.device.type == "cuda"
-        scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
+        amp_dtype = torch.bfloat16 if getattr(self.config, "optimize_h100", False) else torch.float16
+        scaler = torch.amp.GradScaler("cuda", enabled=(use_amp and amp_dtype == torch.float16))
 
         for ep in range(1, epochs + 1):
             start = time.time()
@@ -175,7 +176,7 @@ class TwoStageTrainer:
             for noisy, clean, _ in train_dl:
                 noisy, clean = noisy.to(self.device), clean.to(self.device)
                 opt.zero_grad()
-                with torch.amp.autocast("cuda", enabled=use_amp):
+                with torch.amp.autocast("cuda", enabled=use_amp, dtype=amp_dtype):
                     loss = self.sisnr(denoiser(noisy), clean)
                 scaler.scale(loss).backward()
                 scaler.unscale_(opt)
@@ -230,7 +231,8 @@ class TwoStageTrainer:
         )
 
         use_amp = TRAINING_CONFIG["use_amp"] and self.device.type == "cuda"
-        scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
+        amp_dtype = torch.bfloat16 if getattr(self.config, "optimize_h100", False) else torch.float16
+        scaler = torch.amp.GradScaler("cuda", enabled=(use_amp and amp_dtype == torch.float16))
 
         best_p1, best_state, best_accuracy, patience_cnt = 0.0, None, 0.0, 0
         early_stop_delta = TRAINING_CONFIG["early_stop_delta"]
@@ -246,7 +248,7 @@ class TwoStageTrainer:
                 with torch.no_grad():
                     denoised = model.denoiser(noisy)
                 denoised_aug = self._augment_batch(denoised)
-                with torch.amp.autocast("cuda", enabled=use_amp):
+                with torch.amp.autocast("cuda", enabled=use_amp, dtype=amp_dtype):
                     emb = model.embedder(denoised_aug)
                     loss = metric_loss(emb, y)
                 scaler.scale(loss).backward()

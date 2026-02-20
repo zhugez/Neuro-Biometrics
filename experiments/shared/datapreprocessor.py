@@ -88,6 +88,7 @@ class Config:
 
     # Device
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
+    optimize_h100: bool = False
 
     @property
     def n_channels(self) -> int:

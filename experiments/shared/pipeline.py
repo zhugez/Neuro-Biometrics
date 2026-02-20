@@ -79,6 +79,11 @@ class EEGPipeline:
                         embed_dim=self.config.embed_dim,
                         use_mamba=self.use_mamba,
                     )
+                    if getattr(self.config, "optimize_h100", False):
+                        if seed == 0:
+                            print("      [Optim] Compiling model with torch.compile for H100...")
+                        model.denoiser = torch.compile(model.denoiser)
+                        model.embedder = torch.compile(model.embedder)
 
                     trainer = TwoStageTrainer(self.config, self.logger)
                     trainer.train(
@@ -339,6 +344,8 @@ def run_cli(use_mamba: bool, version: str, default_seeds: int = 3):
                         help="Batch size (default: 256 for H100)")
     parser.add_argument("--num-workers", type=int, default=8,
                         help="DataLoader worker count (default: 8)")
+    parser.add_argument("--optimize-h100", action="store_true",
+                        help="Enable torch.compile and bfloat16 mixed precision")
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[2]
@@ -351,6 +358,7 @@ def run_cli(use_mamba: bool, version: str, default_seeds: int = 3):
     config = Config(data_path=data_path, epochs=args.epochs,
                     batch_size=args.batch_size, log_file=log_path)
     config.num_workers = args.num_workers
+    config.optimize_h100 = getattr(args, "optimize_h100", False)
     print(f"Device: {config.device}")
     print(f"Mamba: {'ON' if use_mamba else 'OFF'} | Batch Size: {config.batch_size} | Workers: {config.num_workers}")
 
