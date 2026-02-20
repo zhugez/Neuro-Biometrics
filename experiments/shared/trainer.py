@@ -127,19 +127,29 @@ class TwoStageTrainer:
         self.sisnr = SISNRLoss()
         self.logger = logger or get_logger("eeg.trainer")
 
-    def _augment_batch(self, x: torch.Tensor) -> torch.Tensor:
+    def _augment_batch(self, x: torch.Tensor, strength: float = 1.0) -> torch.Tensor:
         """EEG augmentation: gaussian jitter, amplitude scaling, time shift, channel dropout."""
+        if strength <= 0.0:
+            return x
         B, C, T = x.shape
         # Gaussian jitter
-        noise = 0.01 * x.std() * torch.randn_like(x)
+        noise_std = float(getattr(self.config, "aug_noise_std", 0.01)) * strength
+        noise = noise_std * x.std() * torch.randn_like(x)
         # Amplitude scaling
-        scale = 0.9 + 0.2 * torch.rand(B, C, 1, device=x.device)
+        scale_min = float(getattr(self.config, "aug_scale_min", 0.9))
+        scale_max = float(getattr(self.config, "aug_scale_max", 1.1))
+        lo = 1.0 - (1.0 - scale_min) * strength
+        hi = 1.0 + (scale_max - 1.0) * strength
+        scale = lo + (hi - lo) * torch.rand(B, C, 1, device=x.device)
         x = (x + noise) * scale
         # Time shift ±50 samples (±0.25 sec at 200 Hz) — temporal invariance
-        shifts = torch.randint(-50, 51, (B,)).tolist()
-        x = torch.stack([torch.roll(x[i], shifts[i], dims=-1) for i in range(B)])
+        max_shift = int(getattr(self.config, "aug_max_shift", 50) * strength)
+        if max_shift > 0:
+            shifts = torch.randint(-max_shift, max_shift + 1, (B,)).tolist()
+            x = torch.stack([torch.roll(x[i], shifts[i], dims=-1) for i in range(B)])
         # Channel dropout: zero 1 of C channels with p=0.2 — electrode robustness
-        if torch.rand(1).item() < 0.2:
+        ch_drop_p = float(getattr(self.config, "aug_channel_dropout_p", 0.2)) * strength
+        if torch.rand(1).item() < ch_drop_p:
             ch = torch.randint(0, C, (1,)).item()
             x[:, ch, :] = 0.0
         return x
@@ -224,7 +234,11 @@ class TwoStageTrainer:
             metric_loss = MultiSimilarityLoss(alpha=2, beta=50, base=0.5).to(self.device)
             params = list(model.embedder.parameters())
 
-        opt = optim.Adam(params, lr=self.config.learning_rate)
+        opt = optim.Adam(
+            params,
+            lr=self.config.learning_rate,
+            weight_decay=self.config.weight_decay,
+        )
         scheduler = CosineAnnealingWarmRestarts(
             opt, T_0=TRAINING_CONFIG["scheduler_T0"],
             T_mult=TRAINING_CONFIG["scheduler_Tmult"],
@@ -241,13 +255,15 @@ class TwoStageTrainer:
             start = time.time()
             model.embedder.train()
             loss_sum, n = 0.0, 0
+            aug_warmup = int(getattr(self.config, "aug_warmup_epochs", 0))
+            aug_strength = 0.0 if ep <= aug_warmup else 1.0
 
             for noisy, clean, y in train_dl:
                 noisy, y = noisy.to(self.device), y.to(self.device)
                 opt.zero_grad()
                 with torch.no_grad():
                     denoised = model.denoiser(noisy)
-                denoised_aug = self._augment_batch(denoised)
+                denoised_aug = self._augment_batch(denoised, strength=aug_strength)
                 with torch.amp.autocast("cuda", enabled=use_amp, dtype=amp_dtype):
                     emb = model.embedder(denoised_aug)
                     loss = metric_loss(emb, y)

@@ -348,6 +348,8 @@ def run_cli(use_mamba: bool, version: str, default_seeds: int = 3):
                         help="DataLoader worker count (default: 8)")
     parser.add_argument("--optimize-h100", action="store_true",
                         help="Enable torch.compile and bfloat16 mixed precision")
+    parser.add_argument("--no-v3-preset", action="store_true",
+                        help="Disable default tuning preset for v3_mamba_tuned")
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[2]
@@ -361,6 +363,20 @@ def run_cli(use_mamba: bool, version: str, default_seeds: int = 3):
                     batch_size=args.batch_size, log_file=log_path)
     config.num_workers = args.num_workers
     config.optimize_h100 = getattr(args, "optimize_h100", False)
+    if version == "v3_mamba_tuned" and not args.no_v3_preset:
+        # Conservative defaults to stabilize Mamba + ArcFace behavior.
+        config.learning_rate = 2e-4
+        config.weight_decay = 5e-5
+        config.patience = 10
+        config.arcface_margin = 0.45
+        config.arcface_scale = 48.0
+        config.aug_noise_std = 0.006
+        config.aug_scale_min = 0.95
+        config.aug_scale_max = 1.05
+        config.aug_max_shift = 24
+        config.aug_channel_dropout_p = 0.10
+        config.aug_warmup_epochs = 3
+        print("[Preset] V3 tuned preset enabled")
     print(f"Device: {config.device}")
     print(f"Mamba: {'ON' if use_mamba else 'OFF'} | Batch Size: {config.batch_size} | Workers: {config.num_workers}")
 

@@ -6,6 +6,7 @@
 **Robust EEG Denoising and Biometric Verification using State Space Models (Mamba) and Metric Learning.**
 
 > 🚀 **Latest:**
+> - [2026-02-20] Added V3 tuned quick-run results (`v3_mamba_tuned`, 1 seed, H100-optimized)
 > - [2026-02-19] Refactored: extracted `experiments/shared/` module, V1/V2 are now thin wrappers (-2082 lines)
 > - [2026-02-19] Fixed: deprecated AMP API, P@5 metric (CMC@5 → true Precision@5), dead code cleanup
 > - [2026-02-19] Google Drive backup via [gogcli](https://github.com/steipete/gogcli)
@@ -275,6 +276,34 @@ V1 uses the same WaveNet denoiser and ResNet embedder, but **without Mamba**.
 | **Best P@1 (Gaussian)** | **82.2%** | **79.8%** |
 | **Best P@1 (Powerline)** | **86.0%** | **85.8%** |
 | **Best P@1 (EMG)** | **82.4%** | **81.1%** |
+
+### V3: Mamba Tuned (Quick Run, 1 seed)
+
+> ⚠️ This is a **single-seed quick run** with `--optimize-h100`, so treat as directional only (not directly comparable to multi-seed V1/V2 stats).
+
+#### Gaussian Noise
+
+| Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ | EER ↓ |
+|---|---|---|---|---|---|
+| ResNet34 + MultiSim | 0.717 | 0.684 | 11.19 | 0.397 | — |
+| ResNet18 + MultiSim | 0.731 | 0.704 | 11.13 | 0.439 | — |
+| **ResNet34 + ArcFace** | **0.749** | **0.734** | 11.18 | 0.421 | **39.3%** |
+
+#### Powerline Noise (50 Hz)
+
+| Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ | EER ↓ |
+|---|---|---|---|---|---|
+| ResNet34 + MultiSim | 0.818 | 0.792 | 23.80 | 0.488 | — |
+| ResNet18 + MultiSim | **0.869** | **0.849** | **23.93** | 0.483 | — |
+| ResNet34 + ArcFace | 0.865 | 0.849 | 23.80 | **0.562** | **30.9%** |
+
+#### EMG Noise (20-80 Hz)
+
+| Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ | EER ↓ |
+|---|---|---|---|---|---|
+| ResNet34 + MultiSim | 0.718 | 0.680 | 12.45 | **0.465** | — |
+| ResNet18 + MultiSim | 0.702 | 0.692 | 12.45 | 0.418 | — |
+| **ResNet34 + ArcFace** | **0.758** | **0.738** | **12.48** | 0.418 | **40.0%** |
 
 ### Metric Definitions
 

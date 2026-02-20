@@ -70,6 +70,13 @@ class Config:
     learning_rate: float = 3e-4
     weight_decay: float = 1e-4
     patience: int = 7
+    # Stage-2 augmentation controls (used by trainer)
+    aug_noise_std: float = 0.01
+    aug_scale_min: float = 0.9
+    aug_scale_max: float = 1.1
+    aug_max_shift: int = 50
+    aug_channel_dropout_p: float = 0.2
+    aug_warmup_epochs: int = 0
 
     # Model
     embed_dim: int = 256
