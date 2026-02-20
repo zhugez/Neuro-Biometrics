@@ -111,6 +111,17 @@ python experiments/v1_baseline/main.py --epochs 30 --seeds 3
 python experiments/v2_mamba/main.py --epochs 30 --seeds 2
 ```
 
+> ⚡ **H100 / High-End GPU Optimization:**
+> For massive GPUs like NVIDIA H100 (80GB VRAM) paired with high-core CPUs, use the following configuration to fully saturate the hardware and prevent DataLoader thread contention:
+> ```bash
+> # 1. Prevent overlapping CPU workers from fighting over cores:
+> export OMP_NUM_THREADS=2
+> export MKL_NUM_THREADS=2
+> 
+> # 2. Run with massive batch size and high workers:
+> python experiments/v2_mamba/main.py --batch-size 4096 --num-workers 12
+> ```
+
 ### 3. Quick Tests
 
 ```bash
