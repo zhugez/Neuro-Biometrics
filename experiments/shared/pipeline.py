@@ -35,6 +35,7 @@ class EEGPipeline:
 
     def __init__(self, config: Config, use_mamba: bool = False):
         self.config = config
+        self.config.use_mamba = use_mamba
         self.use_mamba = use_mamba
         self.logger = get_logger("eeg.pipeline", config.log_file)
         self.loader = EEGDataLoader(config, self.logger)
