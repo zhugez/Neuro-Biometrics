@@ -169,7 +169,11 @@ class EEGPipeline:
             return X_n[mask], X_c[mask], y[mask]
 
         use_cuda = self.config.device == "cuda"
-        loader_kwargs = {"pin_memory": use_cuda, "num_workers": getattr(self.config, "num_workers", 2) if use_cuda else 0}
+        num_workers = getattr(self.config, "num_workers", 2) if use_cuda else 0
+        loader_kwargs = {"pin_memory": use_cuda, "num_workers": num_workers}
+        if num_workers > 0:
+            loader_kwargs["persistent_workers"] = True
+            loader_kwargs["prefetch_factor"] = 4
 
         Xn_tr, Xc_tr, y_tr = _filter(train_subs)
         Xn_v, Xc_v, y_v = _filter(val_subs)
