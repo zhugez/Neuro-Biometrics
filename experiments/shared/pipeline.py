@@ -90,6 +90,7 @@ class EEGPipeline:
                     trainer.train(
                         model, train_dl, val_dl, n_cls,
                         loss_type=m['loss'], noise_type=noise, model_name=m['name'],
+                        seed=seed,
                     )
 
                     test_res = trainer.evaluate_comprehensive(model, test_dl, train_dl, n_cls)
