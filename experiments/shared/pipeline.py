@@ -169,7 +169,7 @@ class EEGPipeline:
             return X_n[mask], X_c[mask], y[mask]
 
         use_cuda = self.config.device == "cuda"
-        loader_kwargs = {"pin_memory": use_cuda, "num_workers": 2 if use_cuda else 0}
+        loader_kwargs = {"pin_memory": use_cuda, "num_workers": getattr(self.config, "num_workers", 2) if use_cuda else 0}
 
         Xn_tr, Xc_tr, y_tr = _filter(train_subs)
         Xn_v, Xc_v, y_v = _filter(val_subs)
@@ -193,6 +193,7 @@ class EEGPipeline:
                 "epochs_stage2": self.config.epochs,
                 "batch_size": self.config.batch_size,
                 "holdout_subjects": self.config.holdout_subjects,
+                "num_workers": getattr(self.config, "num_workers", 2),
             },
             "results": results,
         }
@@ -330,6 +331,10 @@ def run_cli(use_mamba: bool, version: str, default_seeds: int = 3):
                         help="Stage-2 epochs for normal run")
     parser.add_argument("--seeds", type=int, default=default_seeds,
                         help="Number of seeds for normal run")
+    parser.add_argument("--batch-size", type=int, default=256,
+                        help="Batch size (default: 256 for H100)")
+    parser.add_argument("--num-workers", type=int, default=8,
+                        help="DataLoader worker count (default: 8)")
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[2]
@@ -340,9 +345,10 @@ def run_cli(use_mamba: bool, version: str, default_seeds: int = 3):
     log_path = str(Path(__file__).resolve().parent.parent / version / f"output_{version}.json")
 
     config = Config(data_path=data_path, epochs=args.epochs,
-                    batch_size=64, log_file=log_path)
+                    batch_size=args.batch_size, log_file=log_path)
+    config.num_workers = args.num_workers
     print(f"Device: {config.device}")
-    print(f"Mamba: {'ON' if use_mamba else 'OFF'}")
+    print(f"Mamba: {'ON' if use_mamba else 'OFF'} | Batch Size: {config.batch_size} | Workers: {config.num_workers}")
 
     if args.smoke:
         run_smoke_test(config, use_mamba)
