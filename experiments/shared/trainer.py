@@ -292,7 +292,8 @@ class TwoStageTrainer:
         if best_state:
             model.load_state_dict(best_state)
             os.makedirs("weights", exist_ok=True)
-            weight_path = f"weights/best_{metrics.noise_type}_{metrics.model_name}.pth"
+            version_tag = "v2" if getattr(self.config, "use_mamba", False) else "v1"
+            weight_path = f"weights/best_{version_tag}_{metrics.noise_type}_{metrics.model_name}.pth"
             checkpoint = {
                 "model_state_dict": best_state,
                 "config": {k: v for k, v in self.config.__dict__.items()
