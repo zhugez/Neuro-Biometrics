@@ -145,12 +145,12 @@ class TwoStageTrainer:
         return x
 
     def train(self, model, train_dl, val_dl, num_classes,
-              loss_type="arcface", noise_type="", model_name="") -> CaseMetrics:
+              loss_type="arcface", noise_type="", model_name="", seed=0) -> CaseMetrics:
         metrics = CaseMetrics(noise_type=noise_type, model_name=model_name)
         print(f"  [Stage 1] Training Denoiser (SI-SNR)...")
         self._train_stage1(model.denoiser, train_dl, val_dl, metrics)
         print(f"  [Stage 2] Training Embedder (Denoiser Frozen)...")
-        self._train_stage2(model, train_dl, val_dl, num_classes, loss_type, metrics)
+        self._train_stage2(model, train_dl, val_dl, num_classes, loss_type, metrics, seed=seed)
         return metrics
 
     # ------------------------------------------------------------------
@@ -204,7 +204,7 @@ class TwoStageTrainer:
     # Stage 2: Embedder (denoiser frozen)
     # ------------------------------------------------------------------
     def _train_stage2(self, model, train_dl, val_dl, num_classes,
-                      loss_type, metrics):
+                      loss_type, metrics, seed=0):
         if not HAS_METRIC:
             raise ImportError("pip install pytorch-metric-learning")
 
@@ -295,7 +295,7 @@ class TwoStageTrainer:
             model.load_state_dict(best_state)
             os.makedirs("weights", exist_ok=True)
             version_tag = "v2" if getattr(self.config, "use_mamba", False) else "v1"
-            weight_path = f"weights/best_{version_tag}_{metrics.noise_type}_{metrics.model_name}.pth"
+            weight_path = f"weights/best_{version_tag}_{metrics.noise_type}_{metrics.model_name}_seed{seed}.pth"
             checkpoint = {
                 "model_state_dict": best_state,
                 "config": {k: v for k, v in self.config.__dict__.items()
