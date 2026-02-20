@@ -9,10 +9,7 @@
 > - [2026-02-19] Refactored: extracted `experiments/shared/` module, V1/V2 are now thin wrappers (-2082 lines)
 > - [2026-02-19] Fixed: deprecated AMP API, P@5 metric (CMC@5 → true Precision@5), dead code cleanup
 > - [2026-02-19] Google Drive backup via [gogcli](https://github.com/steipete/gogcli)
-> - [2026-02-20] Updated V2 training results in README
-> - [2026-02-19] Updated V1 + V2 training results in README (V2 rerun @ 17:16)
-> - [2026-02-20] Updated V1 baseline results (30/30 epochs)
-> - [2026-02-19] Added V1 baseline results (30/30 epochs)
+> - [2026-02-20] Updated V1/V2 result tables in README and aligned notes with shared Stage-2 augmentation in code
 > - [2026-02-11] Integrated **Mamba SSM** into WaveNet denoiser (V2)
 
 ---
@@ -213,7 +210,7 @@ Neuro-Biometrics/
 
 ### V2: Mamba-Augmented Denoiser (30/30 epochs)
 
-V2 adds a **MambaBlock** at the midpoint of the WaveNet denoiser + training augmentation (noise jitter, amplitude scaling).
+V2 inserts a **MambaBlock** at the midpoint of the WaveNet denoiser.
 
 #### Gaussian Noise
 
@@ -241,13 +238,13 @@ V2 adds a **MambaBlock** at the midpoint of the WaveNet denoiser + training augm
 
 ### V1: Baseline — WaveNet Only (30/30 epochs)
 
-V1 uses the same WaveNet denoiser and ResNet embedder, but **without Mamba** and without training augmentation.
+V1 uses the same WaveNet denoiser and ResNet embedder, but **without Mamba**.
 
 #### Gaussian Noise
 
 | Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ | EER ↓ |
 |---|---|---|---|---|---|
-| ResNet34 + MultiSim | 0.739 ± 0.056 | 0.704 ± 0.056 | 12.28 ± 0.27 | 0.446 ± 0.048 | — |
+| ResNet34 + MultiSim | 0.747 ± 0.035 | 0.729 ± 0.031 | 10.66 ± 0.21 | 0.451 ± 0.060 | — |
 | ResNet18 + MultiSim | 0.737 ± 0.073 | 0.720 ± 0.073 | 10.70 ± 0.19 | 0.465 ± 0.073 | — |
 | **ResNet34 + ArcFace** | **0.822 ± 0.048** | **0.802 ± 0.059** | 10.64 ± 0.24 | 0.570 ± 0.139 | **35.9%** |
 
@@ -274,7 +271,7 @@ V1 uses the same WaveNet denoiser and ResNet embedder, but **without Mamba** and
 | **Denoiser** | WaveNet only | WaveNet + MambaBlock |
 | **Stage 1 epochs** | 30 | 30 |
 | **Stage 2 epochs** | 30 | 30 |
-| **Training augmentation** | ❌ None | ✅ Noise jitter + amplitude scaling |
+| **Training augmentation (Stage 2)** | ✅ Noise jitter + amplitude scaling | ✅ Noise jitter + amplitude scaling |
 | **Best P@1 (Gaussian)** | **82.2%** | **79.8%** |
 | **Best P@1 (Powerline)** | **86.0%** | **85.8%** |
 | **Best P@1 (EMG)** | **82.4%** | **81.1%** |
@@ -291,11 +288,11 @@ V1 uses the same WaveNet denoiser and ResNet embedder, but **without Mamba** and
 
 ### Key Findings
 
-- **ResNet34 + ArcFace** remains strongest for V2 on P@1 and AUROC across all noise types
-- **Mamba improves identification** on Gaussian/EMG (+3.7pp / +4.8pp P@1), while Powerline is roughly on par (-0.1pp)
-- **SI-SNR nearly identical** between V1 and V2 (~12.3 / 37.1 / 14.0 dB) — Mamba doesn't improve raw denoising, but helps downstream embeddings
-- **AUROC still moderate** (best ~0.58) — verification can improve with harder negatives and score calibration
-- Latency: ResNet34 ~0.21–0.23 ms, ResNet18 ~0.19–0.21 ms per inference
+- **ResNet34 + ArcFace** remains the strongest setup within each version.
+- In this run, **V1 is slightly higher than V2** on best P@1 for all three noise types (82.2 vs 79.8, 86.0 vs 85.8, 82.4 vs 81.1).
+- **SI-SNR is nearly identical** between V1 and V2 (~10.6 / 19.8 / 11.7 dB across Gaussian/Powerline/EMG), indicating similar denoising quality.
+- **AUROC remains moderate** (~0.53 to ~0.61 depending on noise/model), so verification can still improve with calibration and harder negatives.
+- Observed V1-V2 gaps are small and should be treated as **seed-sensitive** unless confirmed with larger repeated runs.
 
 ---
 
