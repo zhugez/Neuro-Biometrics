@@ -297,6 +297,32 @@ class NoiseGenerator:
 
 
 # ==============================================================================
+# SPECTROGRAM COMPUTATION (for inline use by EEGDatasetBuilder)
+# ==============================================================================
+def _compute_spectrogram_inline(eeg: torch.Tensor, n_fft: int = 128,
+                                 hop_length: int = 64) -> torch.Tensor:
+    """Compute STFT magnitude spectrogram. Internal helper."""
+    if eeg.dim() == 3:
+        B, C, T = eeg.shape
+        eeg_flat = eeg.view(B * C, T)
+    else:
+        BC, T = eeg.shape
+        eeg_flat = eeg
+
+    window = torch.hann_window(n_fft, device=eeg.device, dtype=eeg.dtype)
+    spec = torch.stft(
+        eeg_flat, n_fft=n_fft, hop_length=hop_length,
+        window=window, center=True, return_complex=True,
+    )
+    spec = torch.abs(spec)
+
+    if eeg.dim() == 3:
+        F, T_spec = spec.shape[1], spec.shape[2]
+        spec = spec.view(B, C, F, T_spec)
+    return spec
+
+
+# ==============================================================================
 # DATASET BUILDER
 # ==============================================================================
 class EEGDatasetBuilder:
@@ -385,3 +411,33 @@ class EEGDatasetBuilder:
                     X_noisy.append(noisy_epoch)
                     y.append(subject)
         return X_noisy, X_clean, y
+
+    def build_dataset_with_spectrogram(self, clean_df, noise_type: str = "gaussian",
+                                       n_fft: int = 128, hop_length: int = 64):
+        """
+        Build dataset with spectrograms precomputed alongside raw EEG.
+
+        Returns:
+            (X_n, X_c, y, X_spec, n_cls) tuple where:
+                X_n:    (N, C, T) noisy EEG tensor
+                X_c:    (N, C, T) clean EEG tensor
+                y:      (N,) subject labels tensor
+                X_spec: (N, C, F, T_spec) per-sample z-score normalized spectrograms
+                n_cls:  number of known classes
+        """
+        (X_n, X_c, y, n_cls), _ = self.build_dataset_with_novelty(clean_df, noise_type)
+
+        # Compute spectrograms for all noisy EEG samples
+        specs = _compute_spectrogram_inline(X_n, n_fft=n_fft, hop_length=hop_length)
+
+        # Per-sample z-score normalization
+        normalized_specs = []
+        for i in range(specs.shape[0]):
+            spec = specs[i]
+            mean = spec.mean()
+            std = spec.std() + 1e-8
+            normed = (spec - mean) / std
+            normalized_specs.append(normed)
+
+        X_spec = torch.stack(normalized_specs, dim=0)
+        return X_n, X_c, y, X_spec, n_cls
