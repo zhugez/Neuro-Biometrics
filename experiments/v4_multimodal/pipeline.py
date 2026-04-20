@@ -21,7 +21,12 @@ import random
 
 from torch.utils.data import DataLoader, TensorDataset
 
-from shared.datapreprocessor import Config, EEGDataLoader, EEGPreprocessor, EEGDatasetBuilder, get_logger
+try:
+    from .config import V4Config
+except ImportError:
+    from config import V4Config
+
+from shared.datapreprocessor import EEGDataLoader, EEGPreprocessor, EEGDatasetBuilder, get_logger
 from shared.model_multimodal import create_multimodal_model
 from shared.trainer_bimodal import BimodalTrainer, BIMODAL_TRAINING_CONFIG
 from shared.dataset_spectrogram import patch_builder_with_spectrogram
@@ -40,7 +45,7 @@ patch_builder_with_spectrogram()
 class MultimodalEEGPipeline:
     """Multi-seed evaluation pipeline for bimodal EEG + Spectrogram metric learning."""
 
-    def __init__(self, config: Config, use_mamba: bool = True):
+    def __init__(self, config: V4Config, use_mamba: bool = True):
         self.config = config
         self.config.use_mamba = use_mamba
         self.use_mamba = use_mamba
@@ -92,6 +97,7 @@ class MultimodalEEGPipeline:
                         n_channels=self.config.n_channels,
                         embed_dim=self.config.embed_dim,
                         use_mamba=self.use_mamba,
+                        spec_embed_dim=getattr(self.config, 'spec_embed_dim', None),
                     )
                     if getattr(self.config, "optimize_h100", False):
                         if seed == 0:
@@ -217,7 +223,7 @@ class MultimodalEEGPipeline:
         all_dists = []
         for noisy, _, _, spectrograms in val_dl:
             noisy = noisy.to(self.config.device)
-            spectrograms = spectrograms.to(self.config.device)
+            spectrograms = spectrograms.to(device=self.config.device, dtype=noisy.dtype)
             _, emb = model(noisy, spectrograms)
             dist = torch.cdist(emb, centroids, p=2)
             all_dists.extend(dist.min(dim=1).values.cpu().tolist())
@@ -233,7 +239,7 @@ class MultimodalEEGPipeline:
         known_dists = []
         for noisy, _, _, spectrograms in known_dl:
             noisy = noisy.to(self.config.device)
-            spectrograms = spectrograms.to(self.config.device)
+            spectrograms = spectrograms.to(device=self.config.device, dtype=noisy.dtype)
             _, emb = model(noisy, spectrograms)
             dist = torch.cdist(emb, centroids, p=2)
             known_dists.extend(dist.min(dim=1).values.cpu().tolist())
@@ -243,7 +249,10 @@ class MultimodalEEGPipeline:
         batch_size = 64
         for i in range(0, len(unknown_noisy), batch_size):
             batch_noisy = unknown_noisy[i:i + batch_size].to(self.config.device)
-            batch_specs = unknown_specs[i:i + batch_size].to(self.config.device)
+            batch_specs = unknown_specs[i:i + batch_size].to(
+                device=self.config.device,
+                dtype=batch_noisy.dtype,
+            )
             _, emb = model(batch_noisy, batch_specs)
             dist = torch.cdist(emb, centroids, p=2)
             unknown_dists.extend(dist.min(dim=1).values.cpu().tolist())
@@ -277,6 +286,9 @@ class MultimodalEEGPipeline:
                 "holdout_subjects": self.config.holdout_subjects,
                 "num_workers": getattr(self.config, "num_workers", 2),
                 "spectrogram_source": getattr(self.config, "spectrogram_source", "noisy"),
+                "spectrogram_n_fft": getattr(self.config, "spectrogram_n_fft", 128),
+                "spectrogram_hop_length": getattr(self.config, "spectrogram_hop_length", 64),
+                "spec_embed_dim": getattr(self.config, "spec_embed_dim", None),
             },
             "results": results,
         }
@@ -304,7 +316,7 @@ class MultimodalEEGPipeline:
 # ---------------------------------------------------------------------------
 # Quick-test utilities
 # ---------------------------------------------------------------------------
-def _make_synthetic_bimodal(config: Config, n_samples: int = 16):
+def _make_synthetic_bimodal(config: V4Config, n_samples: int = 16):
     """Create small synthetic bimodal data for smoke/mini tests."""
     x_noisy = torch.randn(n_samples, config.n_channels, 800)
     x_clean = torch.randn(n_samples, config.n_channels, 800)
@@ -314,7 +326,7 @@ def _make_synthetic_bimodal(config: Config, n_samples: int = 16):
     return x_noisy, x_clean, y, x_spec
 
 
-def run_smoke_test(config: Config, use_mamba: bool):
+def run_smoke_test(config: V4Config, use_mamba: bool):
     """Ultra-light smoke test: forward pass only."""
     print("[SMOKE] Starting minimal smoke test (bimodal)...")
     x_noisy, x_clean, y, x_spec = _make_synthetic_bimodal(config, n_samples=8)
@@ -329,6 +341,7 @@ def run_smoke_test(config: Config, use_mamba: bool):
     model = create_multimodal_model(
         backbone="resnet18", n_channels=config.n_channels,
         embed_dim=config.embed_dim, pretrained=False, use_mamba=use_mamba,
+        spec_embed_dim=getattr(config, "spec_embed_dim", None),
     )
     model.eval()
     with torch.no_grad():
@@ -337,7 +350,7 @@ def run_smoke_test(config: Config, use_mamba: bool):
     print("[SMOKE] Bimodal forward pass OK")
 
 
-def run_one_sample(config: Config, use_mamba: bool):
+def run_one_sample(config: V4Config, use_mamba: bool):
     """Ultra-fast 1-sample completion: forward + result artifact."""
     print("[ONE] Starting 1-sample completion run (bimodal)...")
     x_noisy = torch.randn(1, config.n_channels, 800)
@@ -346,6 +359,7 @@ def run_one_sample(config: Config, use_mamba: bool):
     model = create_multimodal_model(
         backbone="resnet18", n_channels=config.n_channels,
         embed_dim=config.embed_dim, pretrained=False, use_mamba=use_mamba,
+        spec_embed_dim=getattr(config, "spec_embed_dim", None),
     )
     model.eval()
     with torch.no_grad():
@@ -370,7 +384,7 @@ def run_one_sample(config: Config, use_mamba: bool):
     print("[ONE] ONE_SAMPLE_OK")
 
 
-def run_mini_train(config: Config, use_mamba: bool):
+def run_mini_train(config: V4Config, use_mamba: bool):
     """Tiny end-to-end training sanity check (1 epoch, synthetic data)."""
     print("[MINI] Starting tiny end-to-end bimodal train sanity check...")
 
@@ -385,6 +399,7 @@ def run_mini_train(config: Config, use_mamba: bool):
     model = create_multimodal_model(
         backbone="resnet18", n_channels=config.n_channels,
         embed_dim=config.embed_dim, pretrained=False, use_mamba=use_mamba,
+        spec_embed_dim=getattr(config, "spec_embed_dim", None),
     )
 
     BIMODAL_TRAINING_CONFIG["stage1_epochs"] = 1
@@ -435,7 +450,7 @@ def run_cli(use_mamba: bool = True, version: str = "v4_multimodal",
     data_path = str(repo_root / "dataset") + "/"
     log_path = str(Path(__file__).resolve().parent / f"output_{version}.json")
 
-    config = Config(
+    config = V4Config(
         data_path=data_path,
         epochs=args.epochs,
         batch_size=args.batch_size,
@@ -446,6 +461,7 @@ def run_cli(use_mamba: bool = True, version: str = "v4_multimodal",
     config.spectrogram_source = args.spectrogram_source
     config.spectrogram_n_fft = 128
     config.spectrogram_hop_length = 64
+    config.stage2_epochs = args.epochs
 
     print(f"Device: {config.device}")
     print(f"Mamba: {'ON' if use_mamba else 'OFF'} | Batch Size: {config.batch_size} | "

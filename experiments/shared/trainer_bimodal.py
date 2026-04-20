@@ -16,8 +16,8 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import roc_auc_score
 
 from .datapreprocessor import Config, get_logger
+from .dataset_spectrogram import compute_spectrogram
 from .trainer import TwoStageTrainer, TRAINING_CONFIG
-
 try:
     from pytorch_metric_learning.losses import ArcFaceLoss, MultiSimilarityLoss
     HAS_METRIC = True
@@ -102,7 +102,12 @@ class BimodalTrainer(TwoStageTrainer):
         fusion_params = list(model.fusion.parameters())
         spec_embedder_params = list(model.spec_embedder.parameters())
 
-        diff_lr = BIMODAL_TRAINING_CONFIG["differential_lr"]
+        default_diff_lr = BIMODAL_TRAINING_CONFIG["differential_lr"]
+        diff_lr = {
+            "embedder": getattr(self.config, "learning_rate", default_diff_lr["embedder"]),
+            "fusion": getattr(self.config, "fusion_lr", default_diff_lr["fusion"]),
+            "spec_embedder": getattr(self.config, "spec_embedder_lr", default_diff_lr["spec_embedder"]),
+        }
         param_groups = [
             {"params": embedder_params, "lr": diff_lr["embedder"]},
             {"params": fusion_params, "lr": diff_lr["fusion"]},
@@ -162,7 +167,7 @@ class BimodalTrainer(TwoStageTrainer):
                 noisy_eeg = noisy_eeg.to(device)
                 clean_eeg = clean_eeg.to(device)
                 y = y.to(device)
-                spectrograms = spectrograms.to(device)
+                spectrograms = spectrograms.to(device=device, dtype=noisy_eeg.dtype)
 
                 optimizer.zero_grad()
 
@@ -254,27 +259,7 @@ class BimodalTrainer(TwoStageTrainer):
     @staticmethod
     def _compute_spectrogram(eeg: torch.Tensor, n_fft: int = 128,
                               hop_length: int = 64) -> torch.Tensor:
-        """
-        Compute STFT spectrogram from EEG tensor.
-        Input: (B, 4, 800) EEG
-        Output: (B, 4, 65, 13) magnitude spectrogram
-        """
-        B, C, T = eeg.shape
-        specs = []
-        for ch in range(C):
-            ch_data = eeg[:, ch, :]  # (B, T)
-            stft = torch.stft(
-                ch_data,
-                n_fft=n_fft,
-                hop_length=hop_length,
-                window=torch.hann_window(n_fft, device=eeg.device),
-                return_complex=True,
-                center=True,
-                normalized=False,
-            )
-            mag = stft.abs()  # (B, 65, 13)
-            specs.append(mag)
-        return torch.stack(specs, dim=1)  # (B, 4, 65, 13)
+        return compute_spectrogram(eeg, n_fft=n_fft, hop_length=hop_length)
 
     # ------------------------------------------------------------------
     # Evaluation helpers (bimodal-aware)
@@ -286,7 +271,7 @@ class BimodalTrainer(TwoStageTrainer):
         embs, lbls = [], []
         for noisy, _, y, spectrograms in dl:
             noisy = noisy.to(self.device)
-            spectrograms = spectrograms.to(self.device)
+            spectrograms = spectrograms.to(self.device, dtype=noisy.dtype)
             _, emb = model(noisy, spectrograms)
             embs.append(emb.cpu())
             lbls.append(y)
@@ -306,7 +291,7 @@ class BimodalTrainer(TwoStageTrainer):
         embs, lbls = [], []
         for noisy, _, y, spectrograms in dl:
             noisy = noisy.to(self.device)
-            spectrograms = spectrograms.to(self.device)
+            spectrograms = spectrograms.to(self.device, dtype=noisy.dtype)
             _, emb = model(noisy, spectrograms)
             embs.append(emb.cpu())
             lbls.append(y)
@@ -346,7 +331,7 @@ class BimodalTrainer(TwoStageTrainer):
         for noisy, clean, y, spectrograms in dl:
             noisy = noisy.to(self.device)
             clean = clean.to(self.device)
-            spectrograms = spectrograms.to(self.device)
+            spectrograms = spectrograms.to(self.device, dtype=noisy.dtype)
 
             denoised, emb = model(noisy, spectrograms)
 
@@ -386,7 +371,7 @@ class BimodalTrainer(TwoStageTrainer):
         emb_by_class = {c: [] for c in range(num_classes)}
         for noisy, _, y, spectrograms in train_dl:
             noisy = noisy.to(self.device)
-            spectrograms = spectrograms.to(self.device)
+            spectrograms = spectrograms.to(self.device, dtype=noisy.dtype)
             _, emb = model(noisy, spectrograms)
             for e, c in zip(emb.cpu(), y):
                 emb_by_class[c.item()].append(e)
