@@ -48,7 +48,7 @@ class SpectrogramMambaBranch(nn.Module):
             nn.ReLU(inplace=True),
             nn.Dropout(0.1),
             nn.Linear(256, embed_dim),
-            nn.BatchNorm1d(embed_dim),
+            nn.LayerNorm(embed_dim),
         )
         if pretrained:
             self._init_pretrained_conv1()

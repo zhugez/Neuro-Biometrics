@@ -441,9 +441,9 @@ def run_cli(use_mamba: bool = True, version: str = "v4_multimodal",
                         help="DataLoader worker count (default: 8)")
     parser.add_argument("--optimize-h100", action="store_true",
                         help="Enable torch.compile and bfloat16 mixed precision")
-    parser.add_argument("--spectrogram-source", type=str, default="noisy",
+    parser.add_argument("--spectrogram-source", type=str, default="denoised",
                         choices=["noisy", "denoised"],
-                        help="Use spectrogram from noisy or denoised EEG (default: noisy)")
+                        help="Use spectrogram from noisy or denoised EEG (default: denoised)")
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[2]

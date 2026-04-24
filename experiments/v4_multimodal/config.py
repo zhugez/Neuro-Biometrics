@@ -7,7 +7,7 @@ from shared.datapreprocessor import Config
 class V4Config(Config):
     spectrogram_n_fft: int = 128
     spectrogram_hop_length: int = 64
-    spectrogram_source: str = "noisy"
+    spectrogram_source: str = "denoised"
     spec_embed_dim: int | None = None
     fusion_num_heads: int = 4
     stage1_epochs: int = 30

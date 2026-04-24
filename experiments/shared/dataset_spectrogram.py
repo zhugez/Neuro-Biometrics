@@ -16,6 +16,7 @@ def compute_spectrogram(eeg: torch.Tensor, n_fft: int = 128, hop_length: int = 6
         center=True,
         return_complex=True,
     ).abs()
+    spec = torch.log1p(spec)
     freq_bins, spec_steps = spec.shape[1], spec.shape[2]
     return spec.reshape(batch_size, channels, freq_bins, spec_steps)
 
