@@ -9,9 +9,8 @@ EXTRACT_TO = "./"
 
 def main():
     print(f"⬇️ Đang tải {OUTPUT_FILE} từ Google Drive...")
-    # Dùng fuzzy=True để gdown tự tìm link download chính xác
     url = f'https://drive.google.com/uc?id={DRIVE_ID}'
-    gdown.download(url, OUTPUT_FILE, quiet=False, fuzzy=True)
+    gdown.download(url, OUTPUT_FILE, quiet=False)
 
     if not os.path.exists(OUTPUT_FILE):
         print("❌ Lỗi: Không tải được file.")
