@@ -242,7 +242,12 @@ class MultimodalEEGPipeline:
             if len(unique) > 1 and counts.min() >= 2:
                 requested_m = int(getattr(self.config, "m_per_class", 4))
                 min_m_for_batch = int(np.ceil(self.config.batch_size / len(unique)))
-                m_per_class = max(2, requested_m, min_m_for_batch)
+                min_m = max(2, requested_m, min_m_for_batch)
+                valid_m = [
+                    m for m in range(min_m, self.config.batch_size + 1)
+                    if self.config.batch_size % m == 0
+                ]
+                m_per_class = valid_m[0] if valid_m else self.config.batch_size
                 train_sampler = MPerClassSampler(
                     labels_np,
                     m=m_per_class,
