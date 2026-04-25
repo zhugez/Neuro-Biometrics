@@ -14,4 +14,8 @@ class V4Config(Config):
     stage2_epochs: int = 30
     fusion_lr: float = 2e-4
     spec_embedder_lr: float = 1e-4
-    early_stop_metric: str = "auroc"
+    early_stop_metric: str = "p1"
+    use_m_per_class_sampler: bool = True
+    m_per_class: int = 4
+    aux_eeg_loss_weight: float = 0.3
+    aux_spec_loss_weight: float = 0.2

@@ -20,6 +20,12 @@ import torch
 import random
 
 from torch.utils.data import DataLoader, TensorDataset
+try:
+    from pytorch_metric_learning.samplers import MPerClassSampler
+    HAS_MPER_SAMPLER = True
+except ImportError:
+    MPerClassSampler = None
+    HAS_MPER_SAMPLER = False
 
 try:
     from .config import V4Config
@@ -74,6 +80,7 @@ class MultimodalEEGPipeline:
         clean_df = self.preprocessor.to_numpy(processed)
 
         final_results = []
+        denoiser_cache = {}
         for noise in NOISE_TYPES:
             print(f"\n>>> Noise Type: {noise.upper()}")
             for m in MODELS:
@@ -98,7 +105,13 @@ class MultimodalEEGPipeline:
                         embed_dim=self.config.embed_dim,
                         use_mamba=self.use_mamba,
                         spec_embed_dim=getattr(self.config, 'spec_embed_dim', None),
+                        fusion_num_heads=getattr(self.config, 'fusion_num_heads', 4),
                     )
+                    cache_key = (noise, seed)
+                    cached_denoiser = denoiser_cache.get(cache_key)
+                    if cached_denoiser is not None:
+                        model.denoiser.load_state_dict(cached_denoiser)
+
                     if getattr(self.config, "optimize_h100", False):
                         if seed == 0:
                             print("      [Optim] Compiling model with torch.compile for H100...")
@@ -111,8 +124,14 @@ class MultimodalEEGPipeline:
                     trainer.train(
                         model, train_dl, val_dl, n_cls,
                         loss_type=m['loss'], noise_type=noise, model_name=m['name'],
-                        seed=seed,
+                        seed=seed, train_stage1=cached_denoiser is None,
                     )
+                    if cached_denoiser is None:
+                        denoiser_module = getattr(model.denoiser, "_orig_mod", model.denoiser)
+                        denoiser_cache[cache_key] = {
+                            k: v.detach().cpu().clone()
+                            for k, v in denoiser_module.state_dict().items()
+                        }
 
                     test_res = trainer.evaluate_bimodal(model, test_dl, train_dl, n_cls)
 
@@ -140,29 +159,36 @@ class MultimodalEEGPipeline:
         keys_nov = ["tar", "trr", "far", "frr", "auroc", "aupr"]
 
         stats = {}
+        def _ci95(vals):
+            vals = np.asarray(vals, dtype=float)
+            mean = float(np.mean(vals))
+            if len(vals) <= 1:
+                return None
+            if np.isclose(np.std(vals), 0.0):
+                return (mean, mean)
+            ci = _scipy_stats.t.interval(
+                0.95, df=len(vals) - 1,
+                loc=mean, scale=_scipy_stats.sem(vals),
+            )
+            return (float(ci[0]), float(ci[1]))
+
         for k in keys_test:
             vals = [r['test'].get(k, 0.0) for r in runs]
             stats[k] = f"{np.mean(vals):.8f} ± {np.std(vals):.8f}"
             stats[f"{k}_mean"] = float(np.mean(vals))
             stats[f"{k}_std"] = float(np.std(vals))
-            if len(vals) > 1:
-                ci = _scipy_stats.t.interval(
-                    0.95, df=len(vals) - 1,
-                    loc=np.mean(vals), scale=_scipy_stats.sem(vals)
-                )
-                stats[f"{k}_ci95"] = (float(ci[0]), float(ci[1]))
+            ci = _ci95(vals)
+            if ci is not None:
+                stats[f"{k}_ci95"] = ci
 
         for k in keys_nov:
             vals = [r['novelty'][k] for r in runs]
             stats[k] = f"{np.mean(vals):.8f} ± {np.std(vals):.8f}"
             stats[f"{k}_mean"] = float(np.mean(vals))
             stats[f"{k}_std"] = float(np.std(vals))
-            if len(vals) > 1:
-                ci = _scipy_stats.t.interval(
-                    0.95, df=len(vals) - 1,
-                    loc=np.mean(vals), scale=_scipy_stats.sem(vals)
-                )
-                stats[f"{k}_ci95"] = (float(ci[0]), float(ci[1]))
+            ci = _ci95(vals)
+            if ci is not None:
+                stats[f"{k}_ci95"] = ci
 
         best_run = max(runs, key=lambda x: x['test']['p@1'])
         return {
@@ -207,9 +233,28 @@ class MultimodalEEGPipeline:
         Xn_v, Xc_v, y_v, Xs_v = _filter(val_subs)
         Xn_te, Xc_te, y_te, Xs_te = _filter(test_subs)
 
+        train_sampler = None
+        train_shuffle = True
+        if (HAS_MPER_SAMPLER and getattr(self.config, "use_m_per_class_sampler", True)
+                and len(y_tr) >= self.config.batch_size):
+            labels_np = y_tr.cpu().numpy()
+            unique, counts = np.unique(labels_np, return_counts=True)
+            if len(unique) > 1 and counts.min() >= 2:
+                m_per_class = int(getattr(self.config, "m_per_class", 4))
+                m_per_class = max(2, min(m_per_class, int(counts.min()), self.config.batch_size))
+                train_sampler = MPerClassSampler(
+                    labels_np,
+                    m=m_per_class,
+                    batch_size=self.config.batch_size,
+                    length_before_new_iter=len(y_tr),
+                )
+                train_shuffle = False
+                print(f"    [Sampler] MPerClassSampler m={m_per_class}")
+
         return (
             DataLoader(TensorDataset(Xn_tr, Xc_tr, y_tr, Xs_tr),
-                       batch_size=self.config.batch_size, shuffle=True, **loader_kwargs),
+                       batch_size=self.config.batch_size, shuffle=train_shuffle,
+                       sampler=train_sampler, **loader_kwargs),
             DataLoader(TensorDataset(Xn_v, Xc_v, y_v, Xs_v),
                        batch_size=self.config.batch_size, shuffle=False, **loader_kwargs),
             DataLoader(TensorDataset(Xn_te, Xc_te, y_te, Xs_te),
@@ -222,9 +267,7 @@ class MultimodalEEGPipeline:
         centroids = centroids.to(self.config.device)
         all_dists = []
         for noisy, _, _, spectrograms in val_dl:
-            noisy = noisy.to(self.config.device)
-            spectrograms = spectrograms.to(device=self.config.device, dtype=noisy.dtype)
-            _, emb = model(noisy, spectrograms)
+            _, emb = trainer.forward_bimodal(model, noisy, spectrograms)
             dist = torch.cdist(emb, centroids, p=2)
             all_dists.extend(dist.min(dim=1).values.cpu().tolist())
         return float(np.percentile(all_dists, 95))
@@ -238,9 +281,7 @@ class MultimodalEEGPipeline:
         # Known distances
         known_dists = []
         for noisy, _, _, spectrograms in known_dl:
-            noisy = noisy.to(self.config.device)
-            spectrograms = spectrograms.to(device=self.config.device, dtype=noisy.dtype)
-            _, emb = model(noisy, spectrograms)
+            _, emb = trainer.forward_bimodal(model, noisy, spectrograms)
             dist = torch.cdist(emb, centroids, p=2)
             known_dists.extend(dist.min(dim=1).values.cpu().tolist())
 
@@ -248,12 +289,9 @@ class MultimodalEEGPipeline:
         unknown_dists = []
         batch_size = 64
         for i in range(0, len(unknown_noisy), batch_size):
-            batch_noisy = unknown_noisy[i:i + batch_size].to(self.config.device)
-            batch_specs = unknown_specs[i:i + batch_size].to(
-                device=self.config.device,
-                dtype=batch_noisy.dtype,
-            )
-            _, emb = model(batch_noisy, batch_specs)
+            batch_noisy = unknown_noisy[i:i + batch_size]
+            batch_specs = unknown_specs[i:i + batch_size]
+            _, emb = trainer.forward_bimodal(model, batch_noisy, batch_specs)
             dist = torch.cdist(emb, centroids, p=2)
             unknown_dists.extend(dist.min(dim=1).values.cpu().tolist())
 
@@ -289,6 +327,12 @@ class MultimodalEEGPipeline:
                 "spectrogram_n_fft": getattr(self.config, "spectrogram_n_fft", 128),
                 "spectrogram_hop_length": getattr(self.config, "spectrogram_hop_length", 64),
                 "spec_embed_dim": getattr(self.config, "spec_embed_dim", None),
+                "fusion_num_heads": getattr(self.config, "fusion_num_heads", 4),
+                "early_stop_metric": getattr(self.config, "early_stop_metric", "p1"),
+                "use_m_per_class_sampler": getattr(self.config, "use_m_per_class_sampler", True),
+                "m_per_class": getattr(self.config, "m_per_class", 4),
+                "aux_eeg_loss_weight": getattr(self.config, "aux_eeg_loss_weight", 0.3),
+                "aux_spec_loss_weight": getattr(self.config, "aux_spec_loss_weight", 0.2),
             },
             "results": results,
         }
@@ -342,6 +386,7 @@ def run_smoke_test(config: V4Config, use_mamba: bool):
         backbone="resnet18", n_channels=config.n_channels,
         embed_dim=config.embed_dim, pretrained=False, use_mamba=use_mamba,
         spec_embed_dim=getattr(config, "spec_embed_dim", None),
+        fusion_num_heads=getattr(config, "fusion_num_heads", 4),
     ).to(config.device)
     x_noisy = x_noisy.to(config.device)
     x_spec = x_spec.to(config.device)
@@ -362,6 +407,7 @@ def run_one_sample(config: V4Config, use_mamba: bool):
         backbone="resnet18", n_channels=config.n_channels,
         embed_dim=config.embed_dim, pretrained=False, use_mamba=use_mamba,
         spec_embed_dim=getattr(config, "spec_embed_dim", None),
+        fusion_num_heads=getattr(config, "fusion_num_heads", 4),
     ).to(config.device)
     x_noisy = x_noisy.to(config.device)
     x_spec = x_spec.to(config.device)
@@ -404,6 +450,7 @@ def run_mini_train(config: V4Config, use_mamba: bool):
         backbone="resnet18", n_channels=config.n_channels,
         embed_dim=config.embed_dim, pretrained=False, use_mamba=use_mamba,
         spec_embed_dim=getattr(config, "spec_embed_dim", None),
+        fusion_num_heads=getattr(config, "fusion_num_heads", 4),
     )
 
     BIMODAL_TRAINING_CONFIG["stage1_epochs"] = 1
@@ -449,6 +496,17 @@ def run_cli(use_mamba: bool = True, version: str = "v4_multimodal",
     parser.add_argument("--spectrogram-source", type=str, default="denoised",
                         choices=["noisy", "denoised"],
                         help="Use spectrogram from noisy or denoised EEG (default: denoised)")
+    parser.add_argument("--early-stop-metric", type=str, default="p1",
+                        choices=["p1", "auroc", "combined"],
+                        help="Metric for Stage-2 early stopping (default: p1)")
+    parser.add_argument("--m-per-class", type=int, default=4,
+                        help="Samples per class for metric-learning batch sampler (default: 4)")
+    parser.add_argument("--no-m-per-class-sampler", action="store_true",
+                        help="Disable MPerClassSampler and use shuffled batches")
+    parser.add_argument("--aux-eeg-loss-weight", type=float, default=0.3,
+                        help="Auxiliary EEG-branch metric loss weight (default: 0.3)")
+    parser.add_argument("--aux-spec-loss-weight", type=float, default=0.2,
+                        help="Auxiliary spectrogram-branch metric loss weight (default: 0.2)")
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[2]
@@ -467,12 +525,20 @@ def run_cli(use_mamba: bool = True, version: str = "v4_multimodal",
     config.spectrogram_n_fft = 128
     config.spectrogram_hop_length = 64
     config.stage2_epochs = args.epochs
+    config.early_stop_metric = args.early_stop_metric
+    config.use_m_per_class_sampler = not args.no_m_per_class_sampler
+    config.m_per_class = args.m_per_class
+    config.aux_eeg_loss_weight = args.aux_eeg_loss_weight
+    config.aux_spec_loss_weight = args.aux_spec_loss_weight
 
     print(f"Device: {config.device}")
     print(f"Mamba: {'ON' if use_mamba else 'OFF'} | Batch Size: {config.batch_size} | "
           f"Workers: {config.num_workers}")
     print(f"Spectrogram: {config.spectrogram_source} | n_fft={config.spectrogram_n_fft} | "
           f"hop={config.spectrogram_hop_length}")
+    print(f"Early stop: {config.early_stop_metric} | MPerClass: {config.use_m_per_class_sampler} "
+          f"(m={config.m_per_class}) | Aux: eeg={config.aux_eeg_loss_weight}, "
+          f"spec={config.aux_spec_loss_weight}")
 
     if args.smoke:
         run_smoke_test(config, use_mamba)

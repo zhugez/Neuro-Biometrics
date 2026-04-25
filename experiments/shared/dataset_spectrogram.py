@@ -21,10 +21,13 @@ def compute_spectrogram(eeg: torch.Tensor, n_fft: int = 128, hop_length: int = 6
     return spec.reshape(batch_size, channels, freq_bins, spec_steps)
 
 
-def _normalize_spectrograms(specs: torch.Tensor) -> torch.Tensor:
+def normalize_spectrograms(specs: torch.Tensor) -> torch.Tensor:
     mean = specs.mean(dim=(2, 3), keepdim=True)
     std = specs.std(dim=(2, 3), keepdim=True).clamp_min(1e-8)
     return (specs - mean) / std
+
+
+_normalize_spectrograms = normalize_spectrograms
 
 
 class SpectrogramDataset(TensorDataset):

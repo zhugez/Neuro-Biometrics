@@ -17,6 +17,7 @@ class MultimodalEEGMetricModel(nn.Module):
         pretrained: bool = True,
         use_mamba: bool = True,
         spec_embed_dim: int | None = None,
+        fusion_num_heads: int = 4,
     ):
         super().__init__()
         if spec_embed_dim is None:
@@ -41,7 +42,7 @@ class MultimodalEEGMetricModel(nn.Module):
             if spec_embed_dim == embed_dim
             else nn.Linear(spec_embed_dim, embed_dim)
         )
-        self.fusion = CrossAttentionFusion(embed_dim=embed_dim)
+        self.fusion = CrossAttentionFusion(embed_dim=embed_dim, num_heads=fusion_num_heads)
 
     def forward(
         self,
@@ -49,13 +50,24 @@ class MultimodalEEGMetricModel(nn.Module):
         spectrogram: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         denoised = self.denoiser(raw_eeg)
-        emb1 = self.embedder(denoised)
+        fused = self.encode(denoised, spectrogram)
+        return denoised, fused
+
+    def encode(
+        self,
+        eeg: torch.Tensor,
+        spectrogram: torch.Tensor,
+        return_branches: bool = False,
+    ):
+        emb1 = self.embedder(eeg)
         emb2 = self.spec_embedder(spectrogram)
         emb2 = self.spec_projection(emb2)
         if self.spec_embed_dim != self.embed_dim:
             emb2 = F.normalize(emb2, p=2, dim=1)
         fused = self.fusion(emb1, emb2)
-        return denoised, fused
+        if return_branches:
+            return fused, emb1, emb2
+        return fused
 
 
 def create_multimodal_model(
@@ -65,6 +77,7 @@ def create_multimodal_model(
     pretrained: bool = True,
     use_mamba: bool = True,
     spec_embed_dim: int | None = None,
+    fusion_num_heads: int = 4,
 ) -> MultimodalEEGMetricModel:
     return MultimodalEEGMetricModel(
         backbone=backbone,
@@ -73,4 +86,5 @@ def create_multimodal_model(
         pretrained=pretrained,
         use_mamba=use_mamba,
         spec_embed_dim=spec_embed_dim,
+        fusion_num_heads=fusion_num_heads,
     )
