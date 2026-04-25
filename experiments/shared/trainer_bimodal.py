@@ -65,7 +65,10 @@ class BimodalTrainer(TwoStageTrainer):
         from .trainer import CaseMetrics
         metrics = CaseMetrics(noise_type=noise_type, model_name=model_name)
         print(f"  [Stage 1] Training Denoiser (SI-SNR)...")
-        self._train_stage1(model.denoiser, train_dl, val_dl, metrics)
+        self._train_stage1(
+            model.denoiser, train_dl, val_dl, metrics,
+            epochs=getattr(self.config, "stage1_epochs", None),
+        )
         print(f"  [Stage 2] Training Bimodal Embedder + Fusion (Denoiser Frozen)...")
         self._train_stage2_bimodal(
             model, train_dl, val_dl, num_classes, loss_type, metrics, seed=seed
@@ -344,8 +347,7 @@ class BimodalTrainer(TwoStageTrainer):
         lbls = torch.cat(lbls)
 
         # P@1 and P@5
-        from .trainer import p_at_1, _calculate_retrieval_metrics
-        cmc, p1, p5 = _calculate_retrieval_metrics(embs, lbls)
+        cmc, p1, p5 = self._calculate_retrieval_metrics(embs, lbls)
 
         # AUROC
         val_auroc = self._eval_auroc(model, dl)

@@ -6,6 +6,7 @@
 **Robust EEG Denoising and Biometric Verification using State Space Models (Mamba) and Metric Learning.**
 
 > 🚀 **Latest:**
+> - [2026-04-25] Added V4 multimodal 3-seed results and cross-version comparison
 > - [2026-02-20] Added V3 tuned quick-run results (`v3_mamba_tuned`, 1 seed, H100-optimized)
 > - [2026-02-19] Refactored: extracted `experiments/shared/` module, V1/V2 are now thin wrappers (-2082 lines)
 > - [2026-02-19] Fixed: deprecated AMP API, P@5 metric (CMC@5 → true Precision@5), dead code cleanup
@@ -108,7 +109,10 @@ python download_dataset.py
 python experiments/v1_baseline/main.py --epochs 30 --seeds 3
 
 # V2 Mamba: WaveNet + Mamba + ResNet
-python experiments/v2_mamba/main.py --epochs 30 --seeds 2
+python experiments/v2_mamba/main.py --epochs 30 --seeds 3
+
+# V4 Multimodal: WaveNet + Mamba + EEG/spectrogram fusion
+python experiments/v4_multimodal/main.py --epochs 30 --seeds 3 --batch-size 64 --num-workers 2 --spectrogram-source denoised
 ```
 
 > ⚡ **H100 / High-End GPU Optimization:**
@@ -189,9 +193,13 @@ Neuro-Biometrics/
 │   │   └── pipeline.py           # EEGPipeline, smoke/mini/one-sample, CLI
 │   ├── v1_baseline/              # V1: WaveNet only (thin wrapper)
 │   │   └── main.py               # run_cli(use_mamba=False)
-│   └── v2_mamba/                 # V2: WaveNet + Mamba (thin wrapper)
-│       ├── main.py               # run_cli(use_mamba=True)
-│       └── README.md             # V2 detailed results
+│   ├── v2_mamba/                 # V2: WaveNet + Mamba (thin wrapper)
+│   │   ├── main.py               # run_cli(use_mamba=True)
+│   │   └── README.md             # V2 detailed results
+│   ├── v3_mamba_tuned/           # V3: tuned Mamba preset
+│   └── v4_multimodal/            # V4: EEG + spectrogram multimodal fusion
+│       ├── main.py
+│       └── output_v4_multimodal.json
 ├── dataset/                      # EEG data (gitignored)
 ├── .env                          # Secrets: GOG_KEYRING_PASSWORD (gitignored)
 ├── backup_full.py                # Zip & upload weights to Google Drive
@@ -207,7 +215,7 @@ Neuro-Biometrics/
 ## 📈 Results
 
 > **Protocol:** Subject-disjoint — holdout subjects {2, 5, 7, 12} never seen during training.
-> Multi-seed evaluation (3 seeds), best model highlighted per noise type.
+> Multi-seed evaluation uses 3 seeds unless noted; V3 is a single-seed quick run. Best P@1 model is highlighted per noise type.
 
 ### V2: Mamba-Augmented Denoiser (30/30 epochs)
 
@@ -305,6 +313,51 @@ V1 uses the same WaveNet denoiser and ResNet embedder, but **without Mamba**.
 | ResNet18 + MultiSim | 0.702 | 0.692 | 12.45 | 0.418 | — |
 | **ResNet34 + ArcFace** | **0.758** | **0.738** | **12.48** | 0.418 | **40.0%** |
 
+### V4: Multimodal EEG + Spectrogram Fusion (30/30 epochs)
+
+V4 keeps the WaveNet+Mamba denoiser, adds a spectrogram Mamba branch, and fuses EEG/spectrogram embeddings with cross-attention. This T4-friendly run used `--batch-size 64 --num-workers 2 --spectrogram-source denoised`.
+
+> Note: the current V4 evaluator writes EER/latency/params as zero placeholders, so EER is omitted from the table below.
+
+#### Gaussian Noise
+
+| Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ | EER ↓ |
+|---|---|---|---|---|---|
+| ResNet34 + MultiSim | 0.698 ± 0.054 | 0.672 ± 0.053 | 12.31 ± 0.25 | **0.489 ± 0.078** | — |
+| **ResNet18 + MultiSim** | **0.706 ± 0.112** | 0.676 ± 0.124 | 12.30 ± 0.26 | 0.461 ± 0.148 | — |
+| ResNet34 + ArcFace | 0.699 ± 0.068 | **0.677 ± 0.063** | **12.31 ± 0.25** | 0.442 ± 0.129 | — |
+
+#### Powerline Noise (50 Hz)
+
+| Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ | EER ↓ |
+|---|---|---|---|---|---|
+| ResNet34 + MultiSim | 0.676 ± 0.074 | 0.642 ± 0.069 | 37.11 ± 1.59 | **0.514 ± 0.113** | — |
+| **ResNet18 + MultiSim** | **0.716 ± 0.085** | **0.687 ± 0.091** | **37.29 ± 1.61** | 0.503 ± 0.079 | — |
+| ResNet34 + ArcFace | 0.638 ± 0.020 | 0.610 ± 0.027 | 37.09 ± 1.55 | 0.509 ± 0.169 | — |
+
+#### EMG Noise (20-80 Hz)
+
+| Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ | EER ↓ |
+|---|---|---|---|---|---|
+| **ResNet34 + MultiSim** | **0.710 ± 0.043** | **0.687 ± 0.046** | **14.02 ± 0.33** | **0.529 ± 0.051** | — |
+| ResNet18 + MultiSim | 0.687 ± 0.013 | 0.659 ± 0.015 | 14.01 ± 0.32 | 0.514 ± 0.085 | — |
+| ResNet34 + ArcFace | 0.667 ± 0.031 | 0.639 ± 0.028 | 14.02 ± 0.33 | 0.461 ± 0.056 | — |
+
+### Cross-Version Best P@1 Comparison
+
+| Noise | V1 Baseline | V2 Mamba | V3 Tuned (1 seed) | V4 Multimodal |
+|---|---:|---:|---:|---:|
+| Gaussian | **0.822** | 0.798 | 0.749 | 0.706 |
+| Powerline | 0.860 | 0.858 | **0.869** | 0.716 |
+| EMG | **0.824** | 0.811 | 0.758 | 0.710 |
+
+| Version | Main change | Seeds | Best P@1 profile |
+|---|---|---:|---|
+| V1 | WaveNet denoiser only | 3 | Strongest multi-seed P@1 on Gaussian and EMG |
+| V2 | WaveNet + midpoint MambaBlock | 3 | Similar to V1, slightly lower P@1 in this run |
+| V3 | Tuned Mamba preset, H100 optimized | 1 | Best observed Powerline P@1, but single-seed only |
+| V4 | Mamba denoiser + spectrogram Mamba + cross-attention fusion | 3 | Better reported SI-SNR, lower P@1 than V1/V2/V3 |
+
 ### Metric Definitions
 
 | Metric | Description |
@@ -317,11 +370,13 @@ V1 uses the same WaveNet denoiser and ResNet embedder, but **without Mamba**.
 
 ### Key Findings
 
-- **ResNet34 + ArcFace** remains the strongest setup within each version.
+- **ResNet34 + ArcFace** remains strongest for V1/V2 by P@1, while V4 switches to **MultiSimilarity** heads for best P@1 across all noise types.
 - In this run, **V1 is slightly higher than V2** on best P@1 for all three noise types (82.2 vs 79.8, 86.0 vs 85.8, 82.4 vs 81.1).
 - **SI-SNR is nearly identical** between V1 and V2 (~10.6 / 19.8 / 11.7 dB across Gaussian/Powerline/EMG), indicating similar denoising quality.
+- V4 reports higher SI-SNR than V1/V2 (12.3 / 37.3 / 14.0 dB), but lower biometric P@1, so the multimodal fusion path needs more tuning before it is competitive.
 - **AUROC remains moderate** (~0.53 to ~0.61 depending on noise/model), so verification can still improve with calibration and harder negatives.
-- Observed V1-V2 gaps are small and should be treated as **seed-sensitive** unless confirmed with larger repeated runs.
+- V3 is single-seed only and should be treated as directional, not directly comparable to the 3-seed V1/V2/V4 summaries.
+- Observed gaps are small in several settings and should be treated as **seed-sensitive** unless confirmed with larger repeated runs.
 
 ---
 

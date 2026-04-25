@@ -280,7 +280,7 @@ class MultimodalEEGPipeline:
             "experiment": "V4 Multimodal - Multi-Seed Comprehensive Evaluation",
             "use_mamba": self.use_mamba,
             "config": {
-                "epochs_stage1": BIMODAL_TRAINING_CONFIG["stage1_epochs"],
+                "epochs_stage1": getattr(self.config, "stage1_epochs", BIMODAL_TRAINING_CONFIG["stage1_epochs"]),
                 "epochs_stage2": self.config.epochs,
                 "batch_size": self.config.batch_size,
                 "holdout_subjects": self.config.holdout_subjects,
@@ -342,7 +342,9 @@ def run_smoke_test(config: V4Config, use_mamba: bool):
         backbone="resnet18", n_channels=config.n_channels,
         embed_dim=config.embed_dim, pretrained=False, use_mamba=use_mamba,
         spec_embed_dim=getattr(config, "spec_embed_dim", None),
-    )
+    ).to(config.device)
+    x_noisy = x_noisy.to(config.device)
+    x_spec = x_spec.to(config.device)
     model.eval()
     with torch.no_grad():
         denoised, fused = model(x_noisy[:2], x_spec[:2])
@@ -360,7 +362,9 @@ def run_one_sample(config: V4Config, use_mamba: bool):
         backbone="resnet18", n_channels=config.n_channels,
         embed_dim=config.embed_dim, pretrained=False, use_mamba=use_mamba,
         spec_embed_dim=getattr(config, "spec_embed_dim", None),
-    )
+    ).to(config.device)
+    x_noisy = x_noisy.to(config.device)
+    x_spec = x_spec.to(config.device)
     model.eval()
     with torch.no_grad():
         denoised, fused = model(x_noisy, x_spec)
@@ -403,6 +407,7 @@ def run_mini_train(config: V4Config, use_mamba: bool):
     )
 
     BIMODAL_TRAINING_CONFIG["stage1_epochs"] = 1
+    config.stage1_epochs = 1
     config.epochs = 1
     config.patience = 1
 

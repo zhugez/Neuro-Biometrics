@@ -183,7 +183,8 @@ class TwoStageTrainer:
             start = time.time()
             denoiser.train()
             loss_sum, n = 0.0, 0
-            for noisy, clean, _ in train_dl:
+            for batch in train_dl:
+                noisy, clean = batch[0], batch[1]
                 noisy, clean = noisy.to(self.device), clean.to(self.device)
                 opt.zero_grad()
                 with torch.amp.autocast("cuda", enabled=use_amp, dtype=amp_dtype):
@@ -328,7 +329,8 @@ class TwoStageTrainer:
     def _eval_sisnr(self, denoiser, dl: DataLoader) -> float:
         denoiser.eval()
         sisnr_sum, n = 0.0, 0
-        for noisy, clean, _ in dl:
+        for batch in dl:
+            noisy, clean = batch[0], batch[1]
             noisy, clean = noisy.to(self.device), clean.to(self.device)
             sisnr_sum += (-self.sisnr(denoiser(noisy), clean).item()) * noisy.size(0)
             n += noisy.size(0)
