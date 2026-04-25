@@ -240,8 +240,9 @@ class MultimodalEEGPipeline:
             labels_np = y_tr.cpu().numpy()
             unique, counts = np.unique(labels_np, return_counts=True)
             if len(unique) > 1 and counts.min() >= 2:
-                m_per_class = int(getattr(self.config, "m_per_class", 4))
-                m_per_class = max(2, min(m_per_class, int(counts.min()), self.config.batch_size))
+                requested_m = int(getattr(self.config, "m_per_class", 4))
+                min_m_for_batch = int(np.ceil(self.config.batch_size / len(unique)))
+                m_per_class = max(2, requested_m, min_m_for_batch)
                 train_sampler = MPerClassSampler(
                     labels_np,
                     m=m_per_class,
