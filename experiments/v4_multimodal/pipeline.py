@@ -314,6 +314,7 @@ class MultimodalEEGPipeline:
         }
 
     def _save_results(self, results: List[Dict]):
+        output_file = getattr(self.config, "output_file", self.config.log_file)
         output = {
             "experiment": "V4 Multimodal - Multi-Seed Comprehensive Evaluation",
             "use_mamba": self.use_mamba,
@@ -336,9 +337,9 @@ class MultimodalEEGPipeline:
             },
             "results": results,
         }
-        with open(self.config.log_file, 'w') as f:
+        with open(output_file, 'w') as f:
             json.dump(output, f, indent=2)
-        print(f"\nSaved to: {self.config.log_file}")
+        print(f"\nSaved to: {output_file}")
 
     def _print_summary(self, results: List[Dict]):
         print("\n" + "=" * 140)
@@ -427,10 +428,11 @@ def run_one_sample(config: V4Config, use_mamba: bool):
         },
         "metrics": {"p@1": 1.0, "si_snr": 0.0, "accuracy": 1.0, "auroc": 1.0},
     }
-    with open(config.log_file, "w") as f:
+    output_file = getattr(config, "output_file", config.log_file)
+    with open(output_file, "w") as f:
         json.dump(output, f, indent=2)
 
-    print(f"[ONE] Wrote result to: {config.log_file}")
+    print(f"[ONE] Wrote result to: {output_file}")
     print("[ONE] ONE_SAMPLE_OK")
 
 
@@ -511,7 +513,10 @@ def run_cli(use_mamba: bool = True, version: str = "v4_multimodal",
 
     repo_root = Path(__file__).resolve().parents[2]
     data_path = str(repo_root / "dataset") + "/"
-    log_path = str(Path(__file__).resolve().parent / f"output_{version}.json")
+    output_path = str(Path(__file__).resolve().parent / f"output_{version}.json")
+    log_dir = repo_root / "logs"
+    log_dir.mkdir(exist_ok=True)
+    log_path = str(log_dir / f"{version}.log")
 
     config = V4Config(
         data_path=data_path,
@@ -519,6 +524,7 @@ def run_cli(use_mamba: bool = True, version: str = "v4_multimodal",
         batch_size=args.batch_size,
         log_file=log_path,
     )
+    config.output_file = output_path
     config.num_workers = args.num_workers
     config.optimize_h100 = getattr(args, "optimize_h100", False)
     config.spectrogram_source = args.spectrogram_source
