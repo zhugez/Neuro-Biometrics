@@ -6,7 +6,7 @@
 **Robust EEG Denoising and Biometric Verification using State Space Models (Mamba) and Metric Learning.**
 
 > 🚀 **Latest:**
-> - [2026-04-25] Added V4 multimodal 3-seed results and cross-version comparison
+> - [2026-04-25] Updated V4 multimodal RTX 5090 3-seed results and cross-version comparison
 > - [2026-02-20] Added V3 tuned quick-run results (`v3_mamba_tuned`, 1 seed, H100-optimized)
 > - [2026-02-19] Refactored: extracted `experiments/shared/` module, V1/V2 are now thin wrappers (-2082 lines)
 > - [2026-02-19] Fixed: deprecated AMP API, P@5 metric (CMC@5 → true Precision@5), dead code cleanup
@@ -112,7 +112,7 @@ python experiments/v1_baseline/main.py --epochs 30 --seeds 3
 python experiments/v2_mamba/main.py --epochs 30 --seeds 3
 
 # V4 Multimodal: WaveNet + Mamba + EEG/spectrogram fusion
-python experiments/v4_multimodal/main.py --epochs 30 --seeds 3 --batch-size 64 --num-workers 2 --spectrogram-source denoised
+python experiments/v4_multimodal/main.py --epochs 30 --seeds 3 --batch-size 256 --num-workers 8 --spectrogram-source denoised
 ```
 
 > ⚡ **H100 / High-End GPU Optimization:**
@@ -315,48 +315,46 @@ V1 uses the same WaveNet denoiser and ResNet embedder, but **without Mamba**.
 
 ### V4: Multimodal EEG + Spectrogram Fusion (30/30 epochs)
 
-V4 keeps the WaveNet+Mamba denoiser, adds a spectrogram Mamba branch, and fuses EEG/spectrogram embeddings with cross-attention. This T4-friendly run used `--batch-size 64 --num-workers 2 --spectrogram-source denoised`.
-
-> Note: the current V4 evaluator writes EER/latency/params as zero placeholders, so EER is omitted from the table below.
+V4 keeps the WaveNet+Mamba denoiser, adds a spectrogram Mamba branch, and fuses EEG/spectrogram embeddings with cross-attention. This RTX 5090 run used `--batch-size 256 --num-workers 8 --spectrogram-source denoised` with `OMP_NUM_THREADS=2` and `MKL_NUM_THREADS=2`.
 
 #### Gaussian Noise
 
 | Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ | EER ↓ |
 |---|---|---|---|---|---|
-| ResNet34 + MultiSim | 0.698 ± 0.054 | 0.672 ± 0.053 | 12.31 ± 0.25 | **0.489 ± 0.078** | — |
-| **ResNet18 + MultiSim** | **0.706 ± 0.112** | 0.676 ± 0.124 | 12.30 ± 0.26 | 0.461 ± 0.148 | — |
-| ResNet34 + ArcFace | 0.699 ± 0.068 | **0.677 ± 0.063** | **12.31 ± 0.25** | 0.442 ± 0.129 | — |
+| ResNet34 + MultiSim | 0.764 ± 0.050 | 0.743 ± 0.053 | **12.15 ± 0.26** | 0.443 ± 0.021 | 37.6% ± 7.2% |
+| ResNet18 + MultiSim | 0.782 ± 0.028 | 0.755 ± 0.035 | 12.15 ± 0.26 | 0.441 ± 0.036 | 36.9% ± 4.6% |
+| **ResNet34 + ArcFace** | **0.824 ± 0.036** | **0.803 ± 0.040** | 12.15 ± 0.26 | **0.479 ± 0.095** | **35.6% ± 5.9%** |
 
 #### Powerline Noise (50 Hz)
 
 | Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ | EER ↓ |
 |---|---|---|---|---|---|
-| ResNet34 + MultiSim | 0.676 ± 0.074 | 0.642 ± 0.069 | 37.11 ± 1.59 | **0.514 ± 0.113** | — |
-| **ResNet18 + MultiSim** | **0.716 ± 0.085** | **0.687 ± 0.091** | **37.29 ± 1.61** | 0.503 ± 0.079 | — |
-| ResNet34 + ArcFace | 0.638 ± 0.020 | 0.610 ± 0.027 | 37.09 ± 1.55 | 0.509 ± 0.169 | — |
+| ResNet34 + MultiSim | 0.819 ± 0.040 | 0.794 ± 0.049 | **32.38 ± 1.06** | **0.533 ± 0.051** | 40.8% ± 2.4% |
+| ResNet18 + MultiSim | 0.831 ± 0.047 | 0.806 ± 0.052 | 32.38 ± 1.06 | 0.450 ± 0.015 | 37.1% ± 2.1% |
+| **ResNet34 + ArcFace** | **0.877 ± 0.006** | **0.855 ± 0.005** | 32.38 ± 1.06 | 0.501 ± 0.044 | **36.0% ± 3.9%** |
 
 #### EMG Noise (20-80 Hz)
 
 | Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ | EER ↓ |
 |---|---|---|---|---|---|
-| **ResNet34 + MultiSim** | **0.710 ± 0.043** | **0.687 ± 0.046** | **14.02 ± 0.33** | **0.529 ± 0.051** | — |
-| ResNet18 + MultiSim | 0.687 ± 0.013 | 0.659 ± 0.015 | 14.01 ± 0.32 | 0.514 ± 0.085 | — |
-| ResNet34 + ArcFace | 0.667 ± 0.031 | 0.639 ± 0.028 | 14.02 ± 0.33 | 0.461 ± 0.056 | — |
+| ResNet34 + MultiSim | 0.764 ± 0.080 | 0.747 ± 0.075 | **13.83 ± 0.35** | 0.439 ± 0.065 | 38.9% ± 3.9% |
+| ResNet18 + MultiSim | 0.793 ± 0.067 | 0.775 ± 0.069 | 13.83 ± 0.35 | 0.422 ± 0.038 | 35.6% ± 6.6% |
+| **ResNet34 + ArcFace** | **0.838 ± 0.057** | **0.827 ± 0.065** | 13.83 ± 0.35 | **0.514 ± 0.082** | **35.0% ± 5.8%** |
 
 ### Cross-Version Best P@1 Comparison
 
 | Noise | V1 Baseline | V2 Mamba | V3 Tuned (1 seed) | V4 Multimodal |
 |---|---:|---:|---:|---:|
-| Gaussian | **0.822** | 0.798 | 0.749 | 0.706 |
-| Powerline | 0.860 | 0.858 | **0.869** | 0.716 |
-| EMG | **0.824** | 0.811 | 0.758 | 0.710 |
+| Gaussian | 0.822 | 0.798 | 0.749 | **0.824** |
+| Powerline | 0.860 | 0.858 | 0.869 | **0.877** |
+| EMG | 0.824 | 0.811 | 0.758 | **0.838** |
 
 | Version | Main change | Seeds | Best P@1 profile |
 |---|---|---:|---|
-| V1 | WaveNet denoiser only | 3 | Strongest multi-seed P@1 on Gaussian and EMG |
+| V1 | WaveNet denoiser only | 3 | Strong V1/V2 baseline before multimodal fusion |
 | V2 | WaveNet + midpoint MambaBlock | 3 | Similar to V1, slightly lower P@1 in this run |
-| V3 | Tuned Mamba preset, H100 optimized | 1 | Best observed Powerline P@1, but single-seed only |
-| V4 | Mamba denoiser + spectrogram Mamba + cross-attention fusion | 3 | Better reported SI-SNR, lower P@1 than V1/V2/V3 |
+| V3 | Tuned Mamba preset, H100 optimized | 1 | Strong single-seed Powerline quick run, but not directly comparable to 3-seed results |
+| V4 | Mamba denoiser + spectrogram Mamba + cross-attention fusion | 3 | Best observed multi-seed P@1 on Gaussian, Powerline, and EMG |
 
 ### Metric Definitions
 
