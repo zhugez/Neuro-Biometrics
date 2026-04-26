@@ -273,17 +273,18 @@ V1 uses the same WaveNet denoiser and ResNet embedder, but **without Mamba**.
 | ResNet18 + MultiSim | 0.756 ± 0.068 | 0.735 ± 0.071 | 11.65 ± 0.31 | 0.507 ± 0.133 | — |
 | **ResNet34 + ArcFace** | **0.824 ± 0.052** | **0.810 ± 0.058** | 11.65 ± 0.24 | 0.606 ± 0.108 | **35.3%** |
 
-### V1 vs V2 Comparison
+### Cross-Version Architecture Comparison
 
-| Feature | V1 Baseline | V2 Mamba |
-|---|---|---|
-| **Denoiser** | WaveNet only | WaveNet + MambaBlock |
-| **Stage 1 epochs** | 30 | 30 |
-| **Stage 2 epochs** | 30 | 30 |
-| **Training augmentation (Stage 2)** | ✅ Noise jitter + amplitude scaling | ✅ Noise jitter + amplitude scaling |
-| **Best P@1 (Gaussian)** | **82.2%** | **79.8%** |
-| **Best P@1 (Powerline)** | **86.0%** | **85.8%** |
-| **Best P@1 (EMG)** | **82.4%** | **81.1%** |
+| Feature | V1 Baseline | V2 Mamba | V3 Tuned | V4 Multimodal |
+|---|---|---|---|---|
+| **Denoiser** | WaveNet only | WaveNet + MambaBlock | WaveNet + MambaBlock tuned preset | WaveNet + MambaBlock |
+| **Stage 2 input** | EEG only | EEG only | EEG only | EEG + denoised spectrogram |
+| **Fusion** | None | None | None | Cross-attention EEG/spectrogram fusion |
+| **Seeds** | 3 | 3 | 1 | 3 |
+| **Run profile** | Standard 30/30 | Standard 30/30 | H100 quick run | RTX 5090, `--batch-size 256 --num-workers 8` |
+| **Best P@1 (Gaussian)** | 82.2% | 79.8% | 74.9% | **82.4%** |
+| **Best P@1 (Powerline)** | 86.0% | 85.8% | 86.9% | **87.7%** |
+| **Best P@1 (EMG)** | 82.4% | 81.1% | 75.8% | **83.8%** |
 
 ### V3: Mamba Tuned (Quick Run, 1 seed)
 
@@ -368,13 +369,13 @@ V4 keeps the WaveNet+Mamba denoiser, adds a spectrogram Mamba branch, and fuses 
 
 ### Key Findings
 
-- **ResNet34 + ArcFace** remains strongest for V1/V2 by P@1, while V4 switches to **MultiSimilarity** heads for best P@1 across all noise types.
-- In this run, **V1 is slightly higher than V2** on best P@1 for all three noise types (82.2 vs 79.8, 86.0 vs 85.8, 82.4 vs 81.1).
-- **SI-SNR is nearly identical** between V1 and V2 (~10.6 / 19.8 / 11.7 dB across Gaussian/Powerline/EMG), indicating similar denoising quality.
-- V4 reports higher SI-SNR than V1/V2 (12.3 / 37.3 / 14.0 dB), but lower biometric P@1, so the multimodal fusion path needs more tuning before it is competitive.
-- **AUROC remains moderate** (~0.53 to ~0.61 depending on noise/model), so verification can still improve with calibration and harder negatives.
+- **V4 ResNet34 + ArcFace** is the strongest V4 head by P@1 for Gaussian, Powerline, and EMG in the latest RTX 5090 3-seed run.
+- Cross-version best observed P@1 now comes from **V4** on all three noise types: Gaussian 82.4%, Powerline 87.7%, and EMG 83.8%.
+- The Gaussian gap is small (V4 82.4% vs V1 82.2%), so treat that win as seed-sensitive until confirmed with larger repeated runs.
+- V1 remains slightly higher than V2 on best P@1 for all three noise types (82.2 vs 79.8, 86.0 vs 85.8, 82.4 vs 81.1).
+- V4 reports higher SI-SNR than V1/V2 (12.15 / 32.38 / 13.83 dB vs roughly 10.6 / 19.8 / 11.7 dB), indicating stronger denoising in this run.
+- **AUROC remains moderate** across versions, so verification can still improve with calibration and harder negatives.
 - V3 is single-seed only and should be treated as directional, not directly comparable to the 3-seed V1/V2/V4 summaries.
-- Observed gaps are small in several settings and should be treated as **seed-sensitive** unless confirmed with larger repeated runs.
 
 ---
 
