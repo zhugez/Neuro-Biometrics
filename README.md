@@ -6,6 +6,7 @@
 **Robust EEG Denoising and Biometric Verification using State Space Models (Mamba) and Metric Learning.**
 
 > 🚀 **Latest:**
+> - [2026-05-14] Added V5 same-protocol MindID/BrainNet baseline results
 > - [2026-05-14] Added V4 fusion ablation: gated self-attention vs gate-only (`--no-fusion-attn`); gate-only is selected for APSIPA2026
 > - [2026-04-25] Updated V4 multimodal RTX 5090 3-seed results and cross-version comparison
 > - [2026-02-20] Added V3 tuned quick-run results (`v3_mamba_tuned`, 1 seed, H100-optimized)
@@ -114,6 +115,9 @@ python experiments/v2_mamba/main.py --epochs 30 --seeds 3
 
 # V4 Multimodal: WaveNet + Mamba + EEG/spectrogram fusion
 python experiments/v4_multimodal/main.py --epochs 30 --seeds 3 --batch-size 256 --num-workers 8 --spectrogram-source denoised --no-fusion-attn
+
+# V5 Same-Protocol Baselines: MindID + BrainNet
+python experiments/v5_baselines/main.py --epochs 30 --seeds 3 --batch-size 256 --num-workers 8
 ```
 
 > ⚡ **H100 / High-End GPU Optimization:**
@@ -198,9 +202,12 @@ Neuro-Biometrics/
 │   │   ├── main.py               # run_cli(use_mamba=True)
 │   │   └── README.md             # V2 detailed results
 │   ├── v3_mamba_tuned/           # V3: tuned Mamba preset
-│   └── v4_multimodal/            # V4: EEG + spectrogram multimodal fusion
+│   ├── v4_multimodal/            # V4: EEG + spectrogram multimodal fusion
 │       ├── main.py
 │       └── output_v4_multimodal.json
+│   └── v5_baselines/             # V5: MindID/BrainNet same-protocol baselines
+│       ├── main.py
+│       └── output_v5_baselines_slim.json
 ├── dataset/                      # EEG data (gitignored)
 ├── .env                          # Secrets: GOG_KEYRING_PASSWORD (gitignored)
 ├── backup_full.py                # Zip & upload weights to Google Drive
@@ -216,7 +223,7 @@ Neuro-Biometrics/
 ## 📈 Results
 
 > **Protocol:** Subject-disjoint — holdout subjects {2, 5, 7, 12} never seen during training.
-> Multi-seed evaluation uses 3 seeds unless noted; V3 is a single-seed quick run. Best P@1 model is highlighted per noise type.
+> Multi-seed evaluation uses 3 seeds unless noted; V3 is a single-seed quick run. V5 re-implements MindID and BrainNet under the same AEP-Hybrid protocol rather than copying their source-paper numbers. Best P@1 model is highlighted per noise type.
 
 ### V2: Mamba-Augmented Denoiser (30/30 epochs)
 
@@ -354,13 +361,38 @@ This table compares the attention-enabled V4 artifact (`output_v4_multimodal_wit
 | EMG | 0.838 ± 0.057 | **0.851 ± 0.031** | **+0.013** | 35.0% ± 5.8% | **32.8% ± 5.6%** | Gate-only |
 | **Average** | 0.847 | **0.859** | **+0.013** | 35.5% | **34.2%** | **Gate-only selected for paper** |
 
-### Cross-Version Best P@1 Comparison
+### V5: Same-Protocol MindID/BrainNet Baselines (30/30 epochs)
 
-| Noise | V1 Baseline | V2 Mamba | V3 Tuned (1 seed) | V4 Multimodal |
-|---|---:|---:|---:|---:|
-| Gaussian | 0.822 | 0.798 | 0.749 | **0.855** |
-| Powerline | 0.860 | 0.858 | 0.869 | **0.872** |
-| EMG | 0.824 | 0.811 | 0.758 | **0.851** |
+V5 evaluates two cited EEG-biometric baselines under the same AEP-Hybrid split, synthetic noise families, and 3-seed schedule. Both use the WaveNet denoiser without Mamba (`use_mamba=False`); the encoder/head is replaced by MindID + ArcFace or BrainNet + Triplet.
+
+#### Gaussian Noise
+
+| Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ | EER ↓ |
+|---|---|---|---|---|---|
+| **MindID + ArcFace** | **0.814 ± 0.049** | **0.782 ± 0.044** | 12.14 ± 0.26 | 0.515 ± 0.016 | 36.7% ± 2.6% |
+| BrainNet + Triplet | 0.607 ± 0.049 | 0.601 ± 0.052 | **12.14 ± 0.26** | **0.598 ± 0.107** | **36.3% ± 6.9%** |
+
+#### Powerline Noise (50 Hz)
+
+| Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ | EER ↓ |
+|---|---|---|---|---|---|
+| **MindID + ArcFace** | **0.881 ± 0.033** | **0.856 ± 0.039** | **32.34 ± 1.53** | 0.479 ± 0.065 | **31.5% ± 1.7%** |
+| BrainNet + Triplet | 0.650 ± 0.069 | 0.625 ± 0.075 | 32.17 ± 1.20 | **0.603 ± 0.109** | 38.4% ± 4.7% |
+
+#### EMG Noise (20-80 Hz)
+
+| Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ | EER ↓ |
+|---|---|---|---|---|---|
+| **MindID + ArcFace** | **0.840 ± 0.044** | **0.814 ± 0.038** | 13.81 ± 0.36 | 0.490 ± 0.016 | **34.4% ± 3.9%** |
+| BrainNet + Triplet | 0.624 ± 0.029 | 0.614 ± 0.036 | **13.82 ± 0.34** | **0.601 ± 0.123** | 36.1% ± 7.3% |
+
+### Cross-Experiment Best P@1 Comparison
+
+| Noise | V1 Baseline | V2 Mamba | V3 Tuned (1 seed) | V4 Multimodal | V5 Baselines |
+|---|---:|---:|---:|---:|---:|
+| Gaussian | 0.822 | 0.798 | 0.749 | **0.855** | 0.814 |
+| Powerline | 0.860 | 0.858 | 0.869 | 0.872 | **0.881** |
+| EMG | 0.824 | 0.811 | 0.758 | **0.851** | 0.840 |
 
 | Version | Main change | Seeds | Best P@1 profile |
 |---|---|---:|---|
@@ -368,6 +400,7 @@ This table compares the attention-enabled V4 artifact (`output_v4_multimodal_wit
 | V2 | WaveNet + midpoint MambaBlock | 3 | Similar to V1, slightly lower P@1 in this run |
 | V3 | Tuned Mamba preset, H100 optimized | 1 | Strong single-seed Powerline quick run, but not directly comparable to 3-seed results |
 | V4 | Mamba denoiser + spectrogram Mamba + gate-only fusion | 3 | Best observed multi-seed P@1 on Gaussian, Powerline, and EMG |
+| V5 | Same-protocol MindID/BrainNet baselines | 3 | MindID + ArcFace is strongest on Powerline |
 
 ### Metric Definitions
 
@@ -382,12 +415,13 @@ This table compares the attention-enabled V4 artifact (`output_v4_multimodal_wit
 ### Key Findings
 
 - **V4 ResNet34 + ArcFace** is the strongest V4 head by P@1 for Gaussian, Powerline, and EMG in the latest RTX 5090 3-seed gate-only fusion run.
-- Cross-version best observed P@1 now comes from **V4 gate-only fusion** on all three noise types: Gaussian 85.5%, Powerline 87.2%, and EMG 85.1%.
+- Cross-experiment best observed P@1 comes from **V4 gate-only fusion** on Gaussian (85.5%) and EMG (85.1%), while **V5 MindID + ArcFace** is highest on Powerline (88.1%).
 - The gate-only fusion ablation improves average ResNet34+ArcFace P@1 over the gated self-attention run (0.859 vs 0.847) and lowers average EER (34.2% vs 35.5%).
+- V5 MindID is competitive with V4 on all three noise types; BrainNet has higher AUROC but substantially lower P@1 under this protocol.
 - V1 remains slightly higher than V2 on best P@1 for all three noise types (82.2 vs 79.8, 86.0 vs 85.8, 82.4 vs 81.1).
 - V4 reports higher SI-SNR than V1/V2 (12.15 / 32.41 / 13.83 dB vs roughly 10.6 / 19.8 / 11.7 dB), indicating stronger denoising in this run.
 - **AUROC remains moderate** across versions, so verification can still improve with calibration and harder negatives.
-- V3 is single-seed only and should be treated as directional, not directly comparable to the 3-seed V1/V2/V4 summaries.
+- V3 is single-seed only and should be treated as directional, not directly comparable to the 3-seed V1/V2/V4/V5 summaries.
 
 ---
 

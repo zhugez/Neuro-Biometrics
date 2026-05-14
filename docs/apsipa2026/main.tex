@@ -53,11 +53,11 @@ Mamba sweeps, and a gate-only fusion module with auxiliary
 branch losses. On the PhysioNet AEP dataset under the AEP-Hybrid
 protocol (16 known + 4 held-out impostor subjects, three seeds,
 inheriting the partition of~\cite{vu2026aisei}), the full model (V4)
-attains the best
-Precision@1 on all three noise families ($85.5\%$ Gaussian,
-$87.2\%$ power-line, $85.1\%$ EMG) with Stage-I SI-SNR
-$12.15$/$32.41$/$13.83$\,dB. Held-out-subject AUROC $\approx 0.50$
-motivates calibration as future work.
+attains Precision@1 of $85.5\%$ Gaussian, $87.2\%$ power-line, and
+$85.1\%$ EMG with Stage-I SI-SNR $12.15$/$32.41$/$13.83$\,dB. Against
+same-protocol MindID/BrainNet baselines, V4 leads on Gaussian and EMG,
+while MindID is slightly higher on power-line ($88.1\%$).
+Held-out-subject AUROC $\approx 0.50$ motivates calibration as future work.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -106,8 +106,10 @@ Mamba block at the WaveNet midpoint; V3 is a single-seed H100 quick
 run with a tuned Mamba preset, reported as a directional reference;
 V4 is the full multimodal proposal. Under the AEP-Hybrid protocol
 (Sec.~\ref{sec:setup}), V4 delivers the highest mean closed-set
-Precision@1 on every noise family in our benchmark and reaches up to
-$32.4$\,dB SI-SNR on power-line noise.
+Precision@1 among V1--V4 on every noise family and reaches up to
+$32.4$\,dB SI-SNR on power-line noise. We additionally re-implement
+MindID and BrainNet as same-protocol baselines rather than comparing
+only against source-paper numbers.
 
 \section{Related Work}
 \textbf{EEG biometrics.}
@@ -342,8 +344,14 @@ claims.
 WaveNet+Mamba denoiser, ResNet EEG branch, Mamba spectrogram branch, and
 gate-only fusion with auxiliary branch losses.
 \end{itemize}
+In addition, \textbf{V5} re-implements two cited prior-work encoders
+under the same AEP-Hybrid protocol: MindID with an ArcFace head and
+BrainNet with a FaceNet-style triplet head. Both V5 baselines share the
+WaveNet denoiser without Mamba, so the comparison isolates the
+encoder/head under the same split, noise families, and three-seed
+evaluation.
 
-\textbf{Implementation.} All three-seed V1, V2, and V4 experiments run
+\textbf{Implementation.} All three-seed V1, V2, V4, and V5 experiments run
 on a single NVIDIA RTX~5090 with batch size~$256$, $8$ data-loader
 workers, mixed precision, and the \texttt{denoised} spectrogram source
 for V4. The V4 model totals $22.6$\,M parameters with end-to-end
@@ -407,6 +415,49 @@ EMG        & 0.824 & 0.811 & 0.758 & \textbf{0.851} \\
 \end{table}
 
 \input{tables/priorwork}
+
+\subsection{Same-Protocol Prior-Work Baselines}
+Table~\ref{tab:v5} reports the V5 MindID and BrainNet baselines trained
+under the same AEP-Hybrid protocol as the proposed model. MindID is a
+strong same-protocol baseline: V4 remains higher on Gaussian and EMG
+P@1, while MindID is slightly higher on power-line. BrainNet obtains
+higher AUROC in this implementation but substantially lower retrieval
+P@1, indicating that its score distribution is less aligned with nearest
+neighbor identification under the current split.
+
+\begin{table}[t]
+\centering
+\caption{V5 same-protocol MindID/BrainNet baselines, mean$\pm$std over
+three seeds. V4 gate-only R34+Arc P@1 is shown for context.}
+\label{tab:v5}
+\begin{threeparttable}
+\scriptsize
+\setlength{\tabcolsep}{2.8pt}
+\begin{tabular}{l l c c c}
+\toprule
+\textbf{Noise} & \textbf{Model} & \textbf{P@1} & \textbf{AUROC} & \textbf{EER} \\
+\midrule
+\multirow{3}{*}{Gauss.}
+ & V4 R34+Arc & \textbf{.855$\pm$.021} & .541$\pm$.102 & \textbf{.359$\pm$.010} \\
+ & MindID+Arc & .814$\pm$.049 & .515$\pm$.016 & .367$\pm$.026 \\
+ & BrainNet+Tri & .607$\pm$.049 & \textbf{.598$\pm$.107} & .363$\pm$.069 \\
+\midrule
+\multirow{3}{*}{P-line}
+ & V4 R34+Arc & .872$\pm$.052 & .515$\pm$.079 & .340$\pm$.038 \\
+ & MindID+Arc & \textbf{.881$\pm$.033} & .479$\pm$.065 & \textbf{.315$\pm$.017} \\
+ & BrainNet+Tri & .650$\pm$.069 & \textbf{.603$\pm$.109} & .384$\pm$.047 \\
+\midrule
+\multirow{3}{*}{EMG}
+ & V4 R34+Arc & \textbf{.851$\pm$.031} & .535$\pm$.075 & \textbf{.328$\pm$.056} \\
+ & MindID+Arc & .840$\pm$.044 & .490$\pm$.016 & .344$\pm$.039 \\
+ & BrainNet+Tri & .624$\pm$.029 & \textbf{.601$\pm$.123} & .361$\pm$.073 \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}\footnotesize
+\item Arc: ArcFace; Tri: triplet loss.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
 
 \subsection{Detailed V4 Results}
 Table~\ref{tab:v4} reports the full V4 metric grid for the three
@@ -538,12 +589,12 @@ with hardware artefacts (movement, blink, electrode drift) to retire
 the synthetic-only caveat. (iii) Held-out-subject AUROC is near
 chance; we plan verification calibration via Platt scaling on a
 held-out validation cohort and a per-subject score-normalisation
-study. (iv) Same-protocol re-implementation of external EEG-biometric
-baselines (EEGNet, ChronoNet, ICA+SVM) and a cross-dataset transfer
-evaluation are out of scope here and are scheduled for the journal
-version of this work; Table~\ref{tab:priorwork} collects cited
-numbers under their own protocols as an informational, not controlled,
-positioning of the V4 result.
+study. (iv) We re-implement MindID and BrainNet under the same protocol,
+but additional EEG-biometric baselines (EEGNet, ChronoNet, ICA+SVM) and
+a cross-dataset transfer evaluation are out of scope here and are
+scheduled for the journal version of this work; Table~\ref{tab:priorwork}
+collects cited numbers under their own protocols as informational, not
+controlled, positioning.
 
 \section{Conclusion}
 We presented a multimodal Mamba-augmented framework for noise-robust
@@ -551,9 +602,11 @@ EEG biometric identification extending~\cite{vu2026aisei}: V4 combines
 a WaveNet+Mamba denoiser, a spectrogram Mamba branch, and a gate-only
 fusion module trained with auxiliary branch losses.
 Under the AEP-Hybrid protocol (Sec.~\ref{sec:setup}) on the PhysioNet
-AEP dataset, V4 attains the highest mean Precision@1 on all three
-noise families ($85.5\%$/$87.2\%$/$85.1\%$); held-out-subject AUROC
-$\approx 0.50$ motivates calibration as future work.
+AEP dataset, V4 attains the highest mean Precision@1 among V1--V4
+($85.5\%$/$87.2\%$/$85.1\%$). Against same-protocol V5 baselines, V4
+leads on Gaussian and EMG, while MindID is slightly higher on
+power-line; held-out-subject AUROC $\approx 0.50$ motivates calibration
+as future work.
 
 \AtNextBibliography{\footnotesize}
 \setlength{\bibitemsep}{0pt plus 0.3ex}
