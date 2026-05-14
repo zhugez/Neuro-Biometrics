@@ -106,6 +106,7 @@ class MultimodalEEGPipeline:
                         use_mamba=self.use_mamba,
                         spec_embed_dim=getattr(self.config, 'spec_embed_dim', None),
                         fusion_num_heads=getattr(self.config, 'fusion_num_heads', 4),
+                        fusion_use_attn=getattr(self.config, 'fusion_use_attn', True),
                     )
                     cache_key = (noise, seed)
                     cached_denoiser = denoiser_cache.get(cache_key)
@@ -335,6 +336,7 @@ class MultimodalEEGPipeline:
                 "spectrogram_hop_length": getattr(self.config, "spectrogram_hop_length", 64),
                 "spec_embed_dim": getattr(self.config, "spec_embed_dim", None),
                 "fusion_num_heads": getattr(self.config, "fusion_num_heads", 4),
+                "fusion_use_attn": getattr(self.config, "fusion_use_attn", True),
                 "early_stop_metric": getattr(self.config, "early_stop_metric", "p1"),
                 "use_m_per_class_sampler": getattr(self.config, "use_m_per_class_sampler", True),
                 "m_per_class": getattr(self.config, "m_per_class", 4),
@@ -394,6 +396,7 @@ def run_smoke_test(config: V4Config, use_mamba: bool):
         embed_dim=config.embed_dim, pretrained=False, use_mamba=use_mamba,
         spec_embed_dim=getattr(config, "spec_embed_dim", None),
         fusion_num_heads=getattr(config, "fusion_num_heads", 4),
+        fusion_use_attn=getattr(config, "fusion_use_attn", True),
     ).to(config.device)
     x_noisy = x_noisy.to(config.device)
     x_spec = x_spec.to(config.device)
@@ -415,6 +418,7 @@ def run_one_sample(config: V4Config, use_mamba: bool):
         embed_dim=config.embed_dim, pretrained=False, use_mamba=use_mamba,
         spec_embed_dim=getattr(config, "spec_embed_dim", None),
         fusion_num_heads=getattr(config, "fusion_num_heads", 4),
+        fusion_use_attn=getattr(config, "fusion_use_attn", True),
     ).to(config.device)
     x_noisy = x_noisy.to(config.device)
     x_spec = x_spec.to(config.device)
@@ -459,6 +463,7 @@ def run_mini_train(config: V4Config, use_mamba: bool):
         embed_dim=config.embed_dim, pretrained=False, use_mamba=use_mamba,
         spec_embed_dim=getattr(config, "spec_embed_dim", None),
         fusion_num_heads=getattr(config, "fusion_num_heads", 4),
+        fusion_use_attn=getattr(config, "fusion_use_attn", True),
     )
 
     BIMODAL_TRAINING_CONFIG["stage1_epochs"] = 1
@@ -515,6 +520,9 @@ def run_cli(use_mamba: bool = True, version: str = "v4_multimodal",
                         help="Auxiliary EEG-branch metric loss weight (default: 0.3)")
     parser.add_argument("--aux-spec-loss-weight", type=float, default=0.2,
                         help="Auxiliary spectrogram-branch metric loss weight (default: 0.2)")
+    parser.add_argument("--no-fusion-attn", action="store_true",
+                        help="Ablation: disable MultiheadAttention inside CrossAttentionFusion "
+                             "(keeps gate + residual + out MLP).")
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[2]
@@ -542,6 +550,7 @@ def run_cli(use_mamba: bool = True, version: str = "v4_multimodal",
     config.m_per_class = args.m_per_class
     config.aux_eeg_loss_weight = args.aux_eeg_loss_weight
     config.aux_spec_loss_weight = args.aux_spec_loss_weight
+    config.fusion_use_attn = not args.no_fusion_attn
 
     print(f"Device: {config.device}")
     print(f"Mamba: {'ON' if use_mamba else 'OFF'} | Batch Size: {config.batch_size} | "
@@ -551,6 +560,7 @@ def run_cli(use_mamba: bool = True, version: str = "v4_multimodal",
     print(f"Early stop: {config.early_stop_metric} | MPerClass: {config.use_m_per_class_sampler} "
           f"(m={config.m_per_class}) | Aux: eeg={config.aux_eeg_loss_weight}, "
           f"spec={config.aux_spec_loss_weight}")
+    print(f"Fusion attn: {'ON' if config.fusion_use_attn else 'OFF (ablation: gate-only)'}")
 
     if args.smoke:
         run_smoke_test(config, use_mamba)

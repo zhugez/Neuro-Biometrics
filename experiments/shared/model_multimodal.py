@@ -18,6 +18,7 @@ class MultimodalEEGMetricModel(nn.Module):
         use_mamba: bool = True,
         spec_embed_dim: int | None = None,
         fusion_num_heads: int = 4,
+        fusion_use_attn: bool = True,
     ):
         super().__init__()
         if spec_embed_dim is None:
@@ -42,7 +43,11 @@ class MultimodalEEGMetricModel(nn.Module):
             if spec_embed_dim == embed_dim
             else nn.Linear(spec_embed_dim, embed_dim)
         )
-        self.fusion = CrossAttentionFusion(embed_dim=embed_dim, num_heads=fusion_num_heads)
+        self.fusion = CrossAttentionFusion(
+            embed_dim=embed_dim,
+            num_heads=fusion_num_heads,
+            use_attn=fusion_use_attn,
+        )
 
     def forward(
         self,
@@ -78,6 +83,7 @@ def create_multimodal_model(
     use_mamba: bool = True,
     spec_embed_dim: int | None = None,
     fusion_num_heads: int = 4,
+    fusion_use_attn: bool = True,
 ) -> MultimodalEEGMetricModel:
     return MultimodalEEGMetricModel(
         backbone=backbone,
@@ -87,4 +93,5 @@ def create_multimodal_model(
         use_mamba=use_mamba,
         spec_embed_dim=spec_embed_dim,
         fusion_num_heads=fusion_num_heads,
+        fusion_use_attn=fusion_use_attn,
     )

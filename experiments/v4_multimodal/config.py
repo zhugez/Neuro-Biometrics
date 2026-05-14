@@ -10,6 +10,7 @@ class V4Config(Config):
     spectrogram_source: str = "denoised"
     spec_embed_dim: int | None = None
     fusion_num_heads: int = 4
+    fusion_use_attn: bool = True
     stage1_epochs: int = 30
     stage2_epochs: int = 30
     fusion_lr: float = 2e-4
