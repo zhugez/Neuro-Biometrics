@@ -22,7 +22,16 @@ from sklearn.metrics import roc_curve, det_curve, roc_auc_score, average_precisi
 from .datapreprocessor import Config, get_logger
 
 try:
-    from pytorch_metric_learning.losses import ArcFaceLoss, MultiSimilarityLoss
+    from pytorch_metric_learning.losses import (
+        ArcFaceLoss,
+        ContrastiveLoss,
+        MultiSimilarityLoss,
+        TripletMarginLoss,
+    )
+    from pytorch_metric_learning.miners import (
+        MultiSimilarityMiner,
+        TripletMarginMiner,
+    )
     HAS_METRIC = True
 except ImportError:
     HAS_METRIC = False
@@ -224,6 +233,7 @@ class TwoStageTrainer:
             p.requires_grad = False
         model.denoiser.eval()
 
+        miner = None
         if loss_type == "arcface":
             metric_loss = ArcFaceLoss(
                 num_classes, self.config.embed_dim,
@@ -231,6 +241,16 @@ class TwoStageTrainer:
                 scale=self.config.arcface_scale,
             ).to(self.device)
             params = list(model.embedder.parameters()) + list(metric_loss.parameters())
+        elif loss_type == "contrastive":
+            metric_loss = ContrastiveLoss(
+                pos_margin=0.0, neg_margin=1.0,
+            ).to(self.device)
+            miner = MultiSimilarityMiner(epsilon=0.1)
+            params = list(model.embedder.parameters())
+        elif loss_type == "triplet":
+            metric_loss = TripletMarginLoss(margin=0.2).to(self.device)
+            miner = TripletMarginMiner(margin=0.2, type_of_triplets="semihard")
+            params = list(model.embedder.parameters())
         else:
             metric_loss = MultiSimilarityLoss(alpha=2, beta=50, base=0.5).to(self.device)
             params = list(model.embedder.parameters())
@@ -267,7 +287,11 @@ class TwoStageTrainer:
                 denoised_aug = self._augment_batch(denoised, strength=aug_strength)
                 with torch.amp.autocast("cuda", enabled=use_amp, dtype=amp_dtype):
                     emb = model.embedder(denoised_aug)
-                    loss = metric_loss(emb, y)
+                    if miner is not None:
+                        pairs = miner(emb, y)
+                        loss = metric_loss(emb, y, pairs)
+                    else:
+                        loss = metric_loss(emb, y)
                 scaler.scale(loss).backward()
                 scaler.unscale_(opt)
                 torch.nn.utils.clip_grad_norm_(

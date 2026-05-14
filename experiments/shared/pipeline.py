@@ -49,7 +49,9 @@ class EEGPipeline:
         random.seed(seed)
         torch.backends.cudnn.deterministic = True
 
-    def run_evaluation_suite(self, n_seeds: int = 3) -> Dict:
+    def run_evaluation_suite(self, n_seeds: int = 3,
+                             models: List[Dict] = None) -> Dict:
+        models = models if models is not None else MODELS
         print("=" * 60)
         print("EEG Pipeline - Comprehensive Evaluation (Multi-Seed)")
         print(f"Seeds: {n_seeds} | Holdout: {self.config.holdout_subjects}")
@@ -63,7 +65,7 @@ class EEGPipeline:
         final_results = []
         for noise in NOISE_TYPES:
             print(f"\n>>> Noise Type: {noise.upper()}")
-            for m in MODELS:
+            for m in models:
                 print(f"\n  [Model: {m['name']}]")
                 seed_metrics = []
                 for seed in range(n_seeds):
@@ -75,10 +77,11 @@ class EEGPipeline:
                     train_dl, val_dl, test_dl = self._create_split_dataloaders(X_n, X_c, y)
 
                     model = create_metric_model(
-                        backbone=m['backbone'],
+                        backbone=m.get('backbone', 'resnet18'),
                         n_channels=self.config.n_channels,
-                        embed_dim=self.config.embed_dim,
+                        embed_dim=m.get('embed_dim', self.config.embed_dim),
                         use_mamba=self.use_mamba,
+                        embedder_type=m.get('embedder', 'resnet'),
                     )
                     if getattr(self.config, "optimize_h100", False):
                         if seed == 0:
@@ -239,8 +242,9 @@ def _make_synthetic(config: Config, n_samples: int = 16):
     return x_noisy, x_clean, y
 
 
-def run_smoke_test(config: Config, use_mamba: bool):
-    """Ultra-light smoke test: forward pass only."""
+def run_smoke_test(config: Config, use_mamba: bool,
+                   models: List[Dict] = None):
+    """Ultra-light smoke test: forward pass for each configured model."""
     print("[SMOKE] Starting minimal smoke test...")
     x_noisy, x_clean, y = _make_synthetic(config, n_samples=8)
 
@@ -251,14 +255,23 @@ def run_smoke_test(config: Config, use_mamba: bool):
     print(f"[SMOKE] split sizes train={len(train_dl.dataset)} "
           f"val={len(val_dl.dataset)} test={len(test_dl.dataset)}")
 
-    model = create_metric_model(
-        backbone="resnet18", n_channels=config.n_channels,
-        embed_dim=config.embed_dim, pretrained=False, use_mamba=use_mamba,
-    )
-    model.eval()
-    with torch.no_grad():
-        denoised, emb = model(x_noisy[:2])
-    print(f"[SMOKE] forward denoised={tuple(denoised.shape)} emb={tuple(emb.shape)}")
+    smoke_models = models or [
+        {"name": "ResNet18_MultiSim", "backbone": "resnet18", "loss": "multisimilarity"},
+    ]
+    for m in smoke_models:
+        model = create_metric_model(
+            backbone=m.get("backbone", "resnet18"),
+            n_channels=config.n_channels,
+            embed_dim=m.get("embed_dim", config.embed_dim),
+            pretrained=False,
+            use_mamba=use_mamba,
+            embedder_type=m.get("embedder", "resnet"),
+        )
+        model.eval()
+        with torch.no_grad():
+            denoised, emb = model(x_noisy[:2])
+        print(f"[SMOKE] {m['name']} forward "
+              f"denoised={tuple(denoised.shape)} emb={tuple(emb.shape)}")
     print("SMOKE_OK")
 
 
@@ -327,7 +340,8 @@ def run_mini_train(config: Config, use_mamba: bool):
 # ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
-def run_cli(use_mamba: bool, version: str, default_seeds: int = 3):
+def run_cli(use_mamba: bool, version: str, default_seeds: int = 3,
+            models: List[Dict] = None):
     """Shared CLI entry point for both V1 and V2 experiments."""
     parser = argparse.ArgumentParser(
         description=f"Neuro-Biometrics {version} pipeline"
@@ -381,11 +395,11 @@ def run_cli(use_mamba: bool, version: str, default_seeds: int = 3):
     print(f"Mamba: {'ON' if use_mamba else 'OFF'} | Batch Size: {config.batch_size} | Workers: {config.num_workers}")
 
     if args.smoke:
-        run_smoke_test(config, use_mamba)
+        run_smoke_test(config, use_mamba, models=models)
     elif args.mini_train:
         run_mini_train(config, use_mamba)
     elif args.one_sample:
         run_one_sample(config, use_mamba)
     else:
         pipeline = EEGPipeline(config, use_mamba=use_mamba)
-        pipeline.run_evaluation_suite(n_seeds=args.seeds)
+        pipeline.run_evaluation_suite(n_seeds=args.seeds, models=models)

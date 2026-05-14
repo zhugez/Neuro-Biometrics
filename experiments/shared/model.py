@@ -175,11 +175,35 @@ class EEGMetricModel(nn.Module):
 
 def create_metric_model(backbone: str = "resnet18", n_channels: int = 4,
                         embed_dim: int = 128, pretrained: bool = True,
-                        use_mamba: bool = False) -> EEGMetricModel:
-    """Factory function to create the full two-stage model."""
+                        use_mamba: bool = False,
+                        embedder_type: str = "resnet") -> EEGMetricModel:
+    """Factory function to create the full two-stage model.
+
+    ``embedder_type`` selects which encoder follows the denoiser:
+
+    * ``"resnet"`` (default) — ``ResNetMetricEmbedder`` with ``backbone``.
+    * ``"mindid"`` — ``MindIDEmbedder`` (LSTM + attention).
+    * ``"brainnet"`` — ``BrainNetEmbedder`` (1D CNN tower).
+
+    The MindID and BrainNet embedders are re-implementations of prior-work
+    architectures for the cross-protocol comparison; they ignore the
+    ``backbone`` and ``pretrained`` arguments.
+    """
     denoiser = WaveNetDenoiser(channels=n_channels, use_mamba=use_mamba)
-    embedder = ResNetMetricEmbedder(
-        backbone=backbone, in_chans=n_channels,
-        embed_dim=embed_dim, pretrained=pretrained,
-    )
+    if embedder_type == "resnet":
+        embedder = ResNetMetricEmbedder(
+            backbone=backbone, in_chans=n_channels,
+            embed_dim=embed_dim, pretrained=pretrained,
+        )
+    elif embedder_type == "mindid":
+        from .baseline_embedders import MindIDEmbedder
+        embedder = MindIDEmbedder(in_chans=n_channels, embed_dim=embed_dim)
+    elif embedder_type == "brainnet":
+        from .baseline_embedders import BrainNetEmbedder
+        embedder = BrainNetEmbedder(in_chans=n_channels, embed_dim=embed_dim)
+    else:
+        raise ValueError(
+            f"Unknown embedder_type={embedder_type!r}. "
+            "Expected one of: 'resnet', 'mindid', 'brainnet'."
+        )
     return EEGMetricModel(denoiser, embedder)
