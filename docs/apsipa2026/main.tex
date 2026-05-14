@@ -1,0 +1,569 @@
+\documentclass[conference,a4paper]{APSIPA2026}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{threeparttable}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,calc,shapes.geometric,shapes.misc,fit,backgrounds}
+\usepackage[backend=biber,style=ieee]{biblatex}
+\addbibresource{refs.bib}
+
+\usepackage{geometry}
+\geometry{a4paper, top=19mm, bottom=43mm, right=13mm, left=13mm}
+
+\usepackage{fancyhdr}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+\fancypagestyle{firststyle}{
+  \fancyhf{}
+  \fancyhead[C]{2026 Asia Pacific Signal and Information Processing Association Annual Summit and Conference (APSIPA ASC)}
+}
+
+\begin{document}
+
+\title{Multimodal Mamba Fusion for Noise-Robust\\
+EEG Biometric Identification}
+
+\author{
+\authorblockN{
+Ly Ngoc Vu\authorrefmark{1}\authorrefmark{2},
+Huynh Cong Bang\authorrefmark{1}\authorrefmark{2} and
+Nguyen Minh Hanh\authorrefmark{1}\authorrefmark{3}
+}
+
+\authorblockA{
+\authorrefmark{1}
+Faculty of Information Technology, Industrial University of Ho Chi Minh City, Vietnam \\
+E-mail: dezzhuge@gmail.com, bang\_01036047@iuh.edu.vn, hanh\_01036046@iuh.edu.vn \\
+\authorrefmark{2}Equal contribution (co-first authors). \quad
+\authorrefmark{3}Corresponding author.}
+}
+
+\maketitle
+\thispagestyle{firststyle}
+\pagestyle{empty}
+
+\begin{abstract}
+EEG biometric identification is brittle under deployment noise and
+unseen-subject conditions. Extending our two-stage WaveNet+ResNet
+pipeline, we propose a multimodal Mamba framework: a Mamba-augmented
+denoiser, a parallel spectrogram branch with frequency- and time-axis
+Mamba sweeps, and a gated self-attention fusion module with auxiliary
+branch losses. On the PhysioNet AEP dataset under the AEP-Hybrid
+protocol (16 known + 4 held-out impostor subjects, three seeds,
+inheriting the partition of~\cite{vu2026aisei}), the full model (V4)
+attains the best
+Precision@1 on all three noise families ($82.4\%$ Gaussian,
+$87.7\%$ power-line, $83.8\%$ EMG) with Stage-I SI-SNR
+$12.15$/$32.38$/$13.83$\,dB. Held-out-subject AUROC $\approx 0.50$
+motivates calibration as future work.
+\end{abstract}
+
+\begin{IEEEkeywords}
+EEG biometrics, denoising autoencoder, state-space models, Mamba,
+multimodal fusion, gated self-attention fusion, metric learning.
+\end{IEEEkeywords}
+
+\section{Introduction}
+The push toward unobtrusive authentication for wearables, brain-computer
+interfaces, and cyber-physical systems has revived interest in
+EEG-based biometrics: the signal is internal, hard to spoof, and rich in
+subject-specific micro-patterns~\cite{fallahi2023brainnet,yang2022eeg,zhang2017mindid}.
+Concretely, we treat EEG biometrics as the following task: given a
+4-channel, $T=800$-sample EEG window from an enrolled subject, possibly
+corrupted by deployment noise, output a unit-norm $128$-d biometric
+embedding such that (a) the closest enrolled identity in cosine
+distance is the correct subject (closed-set retrieval), and (b) an
+unseen subject can in principle be flagged via a distance threshold
+(open-set verification). Two practical challenges persist:
+real recordings are corrupted by power-line interference, muscle
+artifacts, and broadband noise~\cite{alzahab2024aep}, and deployable
+systems must generalize to subjects that were never seen during
+training~\cite{deng2019arcface,wang2019multisim}.
+
+Our prior two-stage pipeline~\cite{vu2026aisei} decouples a WaveNet
+denoiser from a ResNet metric-learning embedder but operates on a
+single view of the signal with a fixed convolutional receptive field.
+This paper grounds three contributions in concrete observations on
+that design.
+\textbf{(i)} The denoiser's receptive field is fixed by depth and
+dilation, so we insert a \emph{selective state-space}
+(Mamba)~\cite{gu2023mamba,gu2022s4} block at the midpoint of the
+WaveNet stack for content-aware mixing in linear time.
+\textbf{(ii)} The raw waveform hides rhythmic line-noise structure, so
+we add a \emph{spectrogram branch} that re-encodes the denoised signal
+into a 2-D time-frequency map with frequency- and time-axis Mamba
+sweeps.
+\textbf{(iii)} A single embedding view risks branch-specific bias, so
+we fuse the two embeddings with a \emph{gated self-attention fusion}
+module, jointly trained with auxiliary metric losses on each branch.
+
+We evaluate four progressively richer architectures on the PhysioNet
+Auditory-Evoked-Potential EEG dataset~\cite{alzahab2024aep}: V1 is the
+WaveNet-only denoiser baseline of~\cite{vu2026aisei}; V2 inserts a
+Mamba block at the WaveNet midpoint; V3 is a single-seed H100 quick
+run with a tuned Mamba preset, reported as a directional reference;
+V4 is the full multimodal proposal. Under the AEP-Hybrid protocol
+(Sec.~\ref{sec:setup}), V4 delivers the highest mean closed-set
+Precision@1 on every noise family in our benchmark and reaches up to
+$32.4$\,dB SI-SNR on power-line noise.
+
+\section{Related Work}
+\textbf{EEG biometrics.}
+Early EEG biometric systems relied on hand-crafted spectral
+features~\cite{fallahi2023brainnet}. Deep models then took
+over, including attention-recurrent
+architectures~\cite{zhang2017mindid}, triplet-loss embeddings on raw
+signals~\cite{yang2022eeg}, and Siamese networks for cross-session
+matching~\cite{fallahi2023brainnet}. Compact convolutional networks such
+as EEGNet~\cite{lawhern2018eegnet} and deep ConvNets for EEG
+decoding~\cite{schirrmeister2017deep} provide widely used backbones, but
+they are generally trained for closed-set classification and do not
+explicitly target open-set verification.
+
+\textbf{Denoising and signal enhancement.}
+WaveNet-style dilated convolutions are a strong, well-studied tool for
+raw-waveform denoising~\cite{vandenoord2016wavenet,luo2019tasnet}. Our
+prior work~\cite{vu2026aisei} adopts this denoiser with an SI-SNR
+objective; the current paper investigates whether replacing part of the
+convolutional pathway with a selective state-space block produces a
+qualitatively cleaner signal.
+
+\textbf{State-space models.}
+Structured state-space sequence models (S4)~\cite{gu2022s4} and the more
+recent Mamba~\cite{gu2023mamba} approximate long-range temporal
+dependencies in linear time, with content-dependent gating. They are
+attractive for biomedical time-series where Transformer attention is
+costly~\cite{vaswani2017attention} and where physiological non-stationarity
+makes hand-tuned filters fragile. EEG-specific Mamba variants have begun
+to appear for cross-subject decoding~\cite{wang2024eegmamba}; to our
+knowledge, ours is the first study that combines a Mamba-augmented
+denoiser with a Mamba spectrogram branch and gated self-attention fusion for
+EEG biometric identification with open-set verification analysis.
+
+\textbf{Metric learning and multimodal fusion.}
+Angular margin and pair-weighted losses (ArcFace~\cite{deng2019arcface},
+multi-similarity~\cite{wang2019multisim}, contrastive~\cite{hadsell2006contrastive},
+triplet~\cite{schroff2015facenet}) are standard tools for open-set
+verification. Audio spectrogram transformers~\cite{gong2021ast}
+demonstrate that converting a 1-D acoustic signal into a 2-D
+time-frequency map and applying sequence models on top is effective; we
+adopt the same intuition with Mamba sweeps along both spectrogram axes
+and use a gated self-attention fusion to combine the two views, instead
+of a simpler concatenation or score-level fusion.
+
+\section{Method}
+\subsection{Overall Pipeline}
+The pipeline keeps the two-stage decomposition introduced in
+\cite{vu2026aisei} but enriches each stage. Stage~I is responsible for
+removing deployment noise from the raw waveform, and Stage~II is
+responsible for mapping the cleaned signal to a 128-d biometric
+embedding. Stage~I is a WaveNet+Mamba denoiser trained with a
+scale-invariant signal-to-noise ratio (SI-SNR) loss; Stage~II is a
+multimodal embedder that consumes the denoised waveform together with a
+short-time Fourier transform (STFT)-based spectrogram and emits a
+128-d L2-normalized biometric embedding (the L2-normalization layer
+is what produces the unit-norm vectors used downstream). The two stages are trained
+sequentially: Stage~I for $30$ epochs and then frozen as the upstream
+module for Stage~II.
+
+Fig.~\ref{fig:v4-arch} details the V4 multimodal architecture, which
+augments the second stage with a spectrogram branch and gated
+self-attention fusion.
+
+\subsection{Stage I: noise-conditioned waveform denoiser}
+The denoiser ingests a 4-channel raw EEG epoch
+$x_{\mathrm{noisy}}\in\mathbb{R}^{4\times 800}$ and emits a clean estimate
+$\hat{x}=\mathcal{D}(x_{\mathrm{noisy}})$. The WaveNet backbone
+contributes multiscale dilated convolutions for raw-waveform modeling,
+while the inserted Mamba block contributes selective, content-aware
+long-range mixing in $\mathcal{O}(L)$ operations. We retain the
+dilated-convolution backbone of
+\cite{vandenoord2016wavenet,luo2019tasnet}: three blocks of four
+gated dilated layers with dilation $2^{i}$ for $i\in\{0,1,2,3\}$. At the
+midpoint of the stack we insert a single \emph{Mamba block} that performs
+content-dependent state-space mixing over the temporal axis with
+$d_{\mathrm{model}}=64$, $d_{\mathrm{state}}=16$, kernel $4$, and
+expand factor $2$. A pre-LayerNorm and a residual connection wrap the
+block. Architecturally, this swaps a single fixed-receptive-field
+convolutional layer for a selective state-space layer that re-weights
+information across the entire epoch in $\mathcal{O}(L)$ operations.
+
+We synthesize paired training data, i.e. (noisy input, clean target)
+EEG pairs, by mixing clean EEG with three noise families: Gaussian,
+$50$\,Hz power-line, and broadband EMG-like ($20$--$80$\,Hz) at
+controlled SNR levels. The training objective is the SI-SNR loss, a
+scale-invariant reconstruction-quality indicator standard in source
+separation~\cite{luo2019tasnet}, used here so that Stage~I is robust
+to amplitude rescaling between the clean target and the reconstructed
+estimate. The denoiser is trained for $30$ epochs:
+\begin{equation}
+\begin{aligned}
+\mathcal{L}_{\mathrm{SI\text{-}SNR}}(\hat{x},x_{\mathrm{clean}})
+&= -10\,\log_{10}\!\frac{\|\alpha x_{\mathrm{clean}}\|^{2}}
+{\|\hat{x}-\alpha x_{\mathrm{clean}}\|^{2}},\\
+\alpha &= \frac{\langle \hat{x}, x_{\mathrm{clean}}\rangle}
+{\|x_{\mathrm{clean}}\|^{2}}.
+\end{aligned}
+\end{equation}
+
+\subsection{Stage II: dual-view biometric embedder}
+\textbf{EEG branch.} The denoised epoch is reshaped from
+$(4,800)$ to $(4,25,32)$ and passed through a ResNet-18 or ResNet-34
+backbone~\cite{he2016resnet} with a $3{\times}3$ stride-1 stem and no
+maxpool to preserve the small spatial structure, followed by a projection
+head $\text{Linear}(\cdot,256)\to\text{ReLU}\to\text{Dropout}(0.1)
+\to\text{Linear}(256,128)\to\text{BatchNorm}$ and L2 normalization,
+producing the unit-norm waveform embedding $e_{\mathrm{eeg}}\in\mathbb{R}^{128}$.
+
+\textbf{Spectrogram branch.} We compute a short-time Fourier transform
+of the denoised signal with $n_{\mathrm{fft}}=128$ and hop length~$64$,
+yielding a 4-channel time-frequency tensor $S\in\mathbb{R}^{4\times 65\times 13}$.
+A two-layer convolutional stem ($4{\to}32{\to}64$ channels with $3{\times}3$
+kernels and BatchNorm--ReLU) projects $S$ into a 64-d feature map.
+Following the audio-spectrogram-transformer
+intuition~\cite{gong2021ast} of decomposing a 2-D map into two 1-D
+sequence problems, we then apply two Mamba sweeps with a shared
+hidden width of~$64$: \emph{frequency-axis} (sequence is the
+frequency axis with the time axis flattened into the batch) and
+\emph{time-axis} (sequence is the time axis with frequency
+flattened); the first sweep models per-band rhythmic structure, the
+second models its temporal evolution. After mean-pooling over the spatial
+dimensions, an MLP head produces the unit-norm spectrogram embedding
+$e_{\mathrm{spec}}\in\mathbb{R}^{128}$ via a final L2-normalization
+layer that is what makes the embedding unit-norm.
+
+\textbf{Gated self-attention fusion.} The two unit-norm vectors are
+stacked into a length-2 token sequence
+$T=[e_{\mathrm{eeg}};e_{\mathrm{spec}}]\in\mathbb{R}^{2\times 128}$ and
+passed through a four-head self-attention block (shared $Q/K/V$
+derived from $T$; referred to as a cross-attention module
+in~\cite{vu2026aisei}). The attended tokens
+$\tilde{T}=[\tilde{e}_{\mathrm{eeg}};\tilde{e}_{\mathrm{spec}}]$ are
+mixed by a learned gate
+$g=\sigma(W_g[e_{\mathrm{eeg}};e_{\mathrm{spec}}])\in(0,1)^{128}$
+computed from the pre-attention embeddings, where $\sigma$ is the
+elementwise sigmoid and $W_g\in\mathbb{R}^{128\times 256}$ is a
+learned linear projection acting as a soft per-coordinate selector
+between the two views,
+\begin{equation}
+e_{\mathrm{mix}}=g\odot \tilde{e}_{\mathrm{eeg}}
++(1-g)\odot \tilde{e}_{\mathrm{spec}},
+\end{equation}
+followed by a residual MLP and L2 normalization to give the fused
+biometric embedding $f\in\mathbb{R}^{128}$ used at inference.
+
+\textbf{Joint training.} Stage~II is trained for 30 epochs with one of
+two metric losses on $f$: ArcFace~\cite{deng2019arcface} or
+multi-similarity~\cite{wang2019multisim}, drawn from
+\cite{musgrave2020pml}. To prevent the fusion module from collapsing onto
+one branch, we add weighted auxiliary metric losses on each branch:
+\begin{equation}
+\mathcal{L}_{\mathrm{II}}=\mathcal{L}_{\mathrm{metric}}(f)
++\lambda_{e}\mathcal{L}_{\mathrm{metric}}(e_{\mathrm{eeg}})
++\lambda_{s}\mathcal{L}_{\mathrm{metric}}(e_{\mathrm{spec}}).
+\end{equation}
+Numerical values for $\lambda_{e}$, $\lambda_{s}$, and the
+\texttt{MPerClassSampler} parameter $m$ are fixed across all
+experiments and reported in Sec.~\ref{sec:setup}; the chosen
+operating point lies on the plateau of single-seed sensitivity
+sweeps that we defer to the journal version.
+
+\begin{figure*}[t]
+\centering
+\resizebox{\textwidth}{!}{\input{figures/v4_arch.tex}}
+\caption{V4 multimodal architecture. The WaveNet+Mamba denoiser feeds two
+parallel branches: a ResNet metric embedder on the denoised waveform and
+a spectrogram Mamba branch with frequency- and time-axis sweeps. A
+gated self-attention fusion module fuses the two L2-normalized
+embeddings into a single 128-d biometric embedding. Auxiliary metric losses
+on each branch (dashed) prevent fusion collapse during joint training.}
+\label{fig:v4-arch}
+\end{figure*}
+
+\section{Experimental Setup}
+\label{sec:setup}
+\textbf{Dataset.} We use the publicly available PhysioNet
+\emph{Auditory-Evoked-Potential EEG-Biometric} corpus~\cite{alzahab2024aep},
+recording 20 subjects across 12 sessions of approximately two minutes
+each under both resting-state and auditory-stimulation conditions, with
+in-ear and bone-conduction headphones. Auditory evoked potentials are
+the cortical response to a controlled acoustic stimulus; their
+latency- and amplitude-domain morphology can carry subject-specific
+structure that originates in individual differences
+of cortical anatomy and auditory processing pathways, which makes them
+attractive as an internal, replay-resistant biometric cue.
+Recordings are segmented into fixed-length 4-channel epochs of
+$T=800$ samples.
+
+\textbf{Evaluation protocol.} We inherit the subject partitioning and
+open-set scoring rule of~\cite{vu2026aisei} and refer to it as the
+\emph{AEP-Hybrid protocol} for brevity below. Concretely, 4 of the
+20 subjects ($\mathcal{S}_{\mathrm{holdout}}=\{2,5,7,12\}$) are
+strictly held out as an unknown-impostor pool, and the remaining 16
+known subjects are split per-subject into train/validation/test along
+sessions and epochs. Two evaluation tasks share this split.
+\emph{(i) Closed-set retrieval} reports P@1 and P@5 on the test split
+of the 16 known subjects (session- and epoch-disjoint, identity space
+seen at training).
+\emph{(ii) Held-out-subject open-set scoring} forms a per-subject
+prototype as the mean of training-set fused embeddings, scores each
+held-out epoch by its minimum Euclidean distance to any prototype, and
+fixes the operating threshold at the 95th percentile of the same
+min-distance on validation. Held-out-subject AUROC under this scoring
+stays near chance ($\approx 0.50$) and is reported in the discussion;
+the AUROC and EER columns in Table~\ref{tab:v4} are closed-set
+pairwise verification scores on the same test pool, characterizing
+within-subject session variability rather than held-out-subject
+novelty. We repeat each configuration with three random seeds
+(PyTorch, NumPy, and Python \texttt{random} seeds $\{0,1,2\}$) and
+report mean$\pm$standard deviation.
+
+\textbf{Noise families.} We synthesize three noise types at deployment:
+white Gaussian, $50$\,Hz sinusoidal power-line, and broadband
+$20$--$80$\,Hz EMG-like noise.
+
+\textbf{Hyperparameters.} The auxiliary-loss weights are fixed at
+$\lambda_{e}=0.3$ and $\lambda_{s}=0.2$ and the class-balanced sampler
+parameter at $m=4$. These operating points lie on the plateau of
+single-seed sensitivity sweeps over $\lambda_{e}\!\times\!\lambda_{s}$
+and $m\in\{2,4,8,16\}$ on the R34+ArcFace + power-line configuration;
+the full grids are deferred to the journal version, while the headline
+three-seed runs in Tables~\ref{tab:cross} and~\ref{tab:v4} use the
+fixed operating point above.
+
+\textbf{Architectures.} We compare four variants under identical
+data, splits, seeds, and training schedules:
+\begin{itemize}
+\item \textbf{V1}: WaveNet denoiser only (no Mamba) + EEG-only metric
+embedder. This is the prior pipeline of~\cite{vu2026aisei}
+re-evaluated under the AEP-Hybrid protocol.
+\item \textbf{V2}: V1 with the midpoint Mamba block in the
+denoiser.
+\item \textbf{V3}: V2 with a tuned Mamba preset, run as a directional,
+single-seed, different-hardware quick run (NVIDIA H100 with
+\texttt{torch.compile}); not used for the controlled three-seed
+claims.
+\item \textbf{V4}: full multimodal model proposed in this paper:
+WaveNet+Mamba denoiser, ResNet EEG branch, Mamba spectrogram branch, and
+gated self-attention fusion with auxiliary branch losses.
+\end{itemize}
+
+\textbf{Implementation.} All three-seed V1, V2, and V4 experiments run
+on a single NVIDIA RTX~5090 with batch size~$256$, $8$ data-loader
+workers, mixed precision, and the \texttt{denoised} spectrogram source
+for V4. The V4 model totals $22.8$\,M parameters with end-to-end
+inference latency of $186$--$197$\,ms per $4$\,s epoch on an RTX~5090
+(ResNet-34+ArcFace head), well below the $4$\,s epoch duration and
+therefore real-time-compatible; the V1 baseline reaches $\sim\!20$\,ms
+on an RTX~3060 with comparable parameter count
+($\sim\!23.4$\,M)~\cite{vu2026aisei}, so the added Mamba blocks,
+spectrogram branch, and gated fusion module account for the latency
+delta on top of the V1 backbone. V3 was a single-seed quick run on an
+NVIDIA H100 with \texttt{torch.compile}, reported as directional only.
+
+\textbf{Metrics.} We distinguish a \emph{score} (a cosine similarity
+over a single pair of embeddings) from a \emph{metric} (an
+aggregation over the score population). For closed-set retrieval we
+report Precision@1 (P@1) and Precision@5 (P@5): P@5 is the fraction
+of the top-5 retrieved gallery epochs (excluding the query itself)
+that share the query identity, averaged across queries. For signal
+quality we report SI-SNR in decibels. For closed-set pairwise
+verification we report AUROC and equal-error rate (EER):
+AUROC is the area under the receiver-operating-characteristic curve
+constructed by sweeping a threshold over the cosine-similarity score,
+and EER is the threshold at which false-accept and false-reject
+rates coincide. Both are computed over all test-pool embedding pairs
+(Table~\ref{tab:v4}); held-out-subject open-set scoring is described
+separately in the protocol paragraph.
+
+\section{Results and Discussion}
+\subsection{Cross-Version Best P@1}
+Table~\ref{tab:cross} summarizes the best Precision@1 of each version,
+selected per noise family across the three metric heads. The proposed
+V4 model is the strongest configuration on every noise type, with the
+clearest margins on power-line and EMG. V3 reaches a competitive
+power-line score (its tuned Mamba preset narrows the spectral residual
+the $50$\,Hz line leaves behind), but its Gaussian and EMG numbers
+trail V1, V2, and V4: with a single seed and a different hardware
+target (H100 + \texttt{torch.compile}) the run is not directly
+comparable to the three-seed RTX~5090 numbers and is reported only as
+a directional reference.
+
+\begin{table}[t]
+\centering
+\caption{Best Precision@1 (P@1) per version and noise type. Higher is
+better. V3 is a single-seed quick run.}
+\label{tab:cross}
+\begin{threeparttable}
+\begin{tabular}{l c c c c}
+\toprule
+\textbf{Noise} & \textbf{V1} & \textbf{V2} & \textbf{V3}\tnote{$\dagger$}
+& \textbf{V4} \\
+\midrule
+Gaussian   & 0.822 & 0.798 & 0.749 & \textbf{0.824} \\
+Power-line & 0.860 & 0.858 & 0.869 & \textbf{0.877} \\
+EMG        & 0.824 & 0.811 & 0.758 & \textbf{0.838} \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}\footnotesize
+\item[$\dagger$] Single-seed H100 quick run; reported for reference only.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+\input{tables/priorwork}
+
+\subsection{Detailed V4 Results}
+Table~\ref{tab:v4} reports the full V4 metric grid for the three
+metric heads. ResNet-34 with ArcFace is consistently the strongest head
+in P@1, while ResNet-18 with multi-similarity is competitive on
+power-line. The denoiser reaches its highest SI-SNR in the
+power-line condition (the $50$\,Hz sinusoid is structurally easy to
+remove); Gaussian and EMG SI-SNR are lower but still in the regime
+expected for non-stationary residuals.
+
+\begin{table}[t]
+\centering
+\caption{V4 multimodal results, mean$\pm$std over three seeds. The
+ResNet-34+ArcFace head is the strongest by P@1 on all noise families.}
+\label{tab:v4}
+\begin{threeparttable}
+\scriptsize
+\setlength{\tabcolsep}{2.2pt}
+\begin{tabular}{l l c c c c c}
+\toprule
+\textbf{Noise} & \textbf{Head} & \textbf{P@1} & \textbf{P@5}
+& \textbf{SI-SNR} & \textbf{AUROC} & \textbf{EER} \\
+\midrule
+\multirow{3}{*}{Gauss.}
+ & R34+MS  & .764$\pm$.050 & .743$\pm$.053 & 12.15$\pm$.26 & .443$\pm$.021 & .376$\pm$.072 \\
+ & R18+MS  & .782$\pm$.028 & .755$\pm$.035 & 12.15$\pm$.26 & .441$\pm$.036 & .369$\pm$.046 \\
+ & R34+Arc & \textbf{.824$\pm$.036} & \textbf{.803$\pm$.040} & 12.15$\pm$.26 & .479$\pm$.095 & .356$\pm$.059 \\
+\midrule
+\multirow{3}{*}{P-line}
+ & R34+MS  & .819$\pm$.040 & .794$\pm$.049 & 32.38$\pm$1.06 & .533$\pm$.051 & .408$\pm$.024 \\
+ & R18+MS  & .831$\pm$.047 & .806$\pm$.052 & 32.38$\pm$1.06 & .450$\pm$.015 & .371$\pm$.021 \\
+ & R34+Arc & \textbf{.877$\pm$.006} & \textbf{.855$\pm$.005} & 32.38$\pm$1.06 & .501$\pm$.044 & .360$\pm$.039 \\
+\midrule
+\multirow{3}{*}{EMG}
+ & R34+MS  & .764$\pm$.080 & .747$\pm$.075 & 13.83$\pm$.35 & .439$\pm$.065 & .389$\pm$.039 \\
+ & R18+MS  & .793$\pm$.067 & .775$\pm$.069 & 13.83$\pm$.35 & .422$\pm$.038 & .356$\pm$.066 \\
+ & R34+Arc & \textbf{.838$\pm$.057} & \textbf{.827$\pm$.065} & 13.83$\pm$.35 & .514$\pm$.082 & .350$\pm$.058 \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}\footnotesize
+\item MS: multi-similarity loss; Arc: ArcFace; R18/R34: ResNet-18/34.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+\subsection{Ablation: Mamba and Multimodal Fusion}
+Table~\ref{tab:ablation} isolates the contribution of each architectural
+ingredient on the strongest head (ResNet-34 + ArcFace) using P@1 as the
+discriminating metric. Inserting a single Mamba block into the WaveNet
+denoiser (V1$\to$V2) leaves P@1 essentially unchanged and even slightly
+hurts it, suggesting that swapping a single fixed-receptive-field
+convolutional layer for a state-space block does not, on its own,
+re-shape the embedding geometry. Adding the spectrogram branch and
+gated self-attention fusion (V2$\to$V4) is what unlocks retrieval gains of
+$+2.6$, $+1.9$, and $+2.7$ percentage points respectively over V2, and
+$+0.2$, $+1.7$, and $+1.4$ over V1. We do not attempt to attribute
+SI-SNR deltas to the Stage~II additions: each version retrains its own
+Stage~I denoiser independently, so cross-version SI-SNR differences
+reflect independent training runs of nominally the same architecture
+rather than any contribution from the spectrogram branch or fusion
+module. Per-version Stage~I SI-SNR (mean across seeds, ResNet-34+ArcFace
+configuration) is V1: $10.64/19.98/11.65$\,dB; V2:
+$10.65/19.61/11.67$\,dB; V4: $12.15/32.38/13.83$\,dB on Gaussian /
+power-line / EMG, and is intended only as descriptive Stage~I quality.
+
+\begin{table}[t]
+\centering
+\caption{Architectural ablation on ResNet-34+ArcFace by P@1.
+$\Delta$ rows are V4 minus V1. Stage~I is retrained independently per
+version, so SI-SNR is not used here as an ablation metric.}
+\label{tab:ablation}
+\begin{tabular}{l l c}
+\toprule
+\textbf{Noise} & \textbf{Variant} & \textbf{P@1} \\
+\midrule
+\multirow{4}{*}{Gaussian}
+ & V1: WaveNet  & 0.822 \\
+ & V2: + Mamba  & 0.798 \\
+ & V4: + Spec + Fusion & \textbf{0.824} \\
+ & $\Delta$ V4$-$V1 & $+0.002$ \\
+\midrule
+\multirow{4}{*}{Power-line}
+ & V1: WaveNet  & 0.860 \\
+ & V2: + Mamba  & 0.858 \\
+ & V4: + Spec + Fusion & \textbf{0.877} \\
+ & $\Delta$ V4$-$V1 & $+0.017$ \\
+\midrule
+\multirow{4}{*}{EMG}
+ & V1: WaveNet  & 0.824 \\
+ & V2: + Mamba  & 0.811 \\
+ & V4: + Spec + Fusion & \textbf{0.838} \\
+ & $\Delta$ V4$-$V1 & $+0.014$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Discussion}
+\textbf{Where multimodal helps.} The largest mean-P@1 jumps occur on
+power-line noise, consistent with the spectrogram localizing the
+$50$\,Hz line and the gate suppressing it before fusion. EMG is
+intermediate (broadband but high-frequency-tilted); Gaussian gains are
+smallest, consistent with white noise being structureless in both
+views.
+
+\textbf{Effect sizes and the Mamba-alone variant.} V4-over-V1 and
+V2-vs-V1 mean-P@1 deltas both fall within across-seed standard
+deviation, so we report them as magnitude observations rather than
+tested claims (see Limitations). The implication is that the gains
+should be read as a property of the full multimodal stack — denoiser,
+spectrogram branch, and gated fusion together — rather than an
+isolated Stage-I Mamba effect.
+
+\textbf{Verification gap.} Held-out-subject AUROC of the centroid
+min-distance score stays close to chance ($\approx 0.50$) across all
+V4 configurations, confirming that threshold-free verification of
+unseen identities remains the open problem. The AUROC ($0.42$--$0.53$)
+and EER ($0.35$--$0.41$) columns in Table~\ref{tab:v4} are computed on
+the closed-set test pool (session- and epoch-disjoint, all subjects
+seen during training) and indicate within-subject session variability,
+not novel-identity verification; calibration is left to future work.
+
+\textbf{Limitations and future work.} Each limitation below is paired
+with the planned remedy. (i) The dataset is small (20 subjects, 4
+channels), so absolute deltas are within across-seed noise; we plan a
+multi-cohort recording with $\geq 100$ subjects to support paired
+significance at the per-noise level. (ii) Noise is synthetic by
+controlled injection; we plan a live-environment recording session
+with hardware artefacts (movement, blink, electrode drift) to retire
+the synthetic-only caveat. (iii) Held-out-subject AUROC is near
+chance; we plan verification calibration via Platt scaling on a
+held-out validation cohort and a per-subject score-normalisation
+study. (iv) Same-protocol re-implementation of external EEG-biometric
+baselines (EEGNet, ChronoNet, ICA+SVM) and a cross-dataset transfer
+evaluation are out of scope here and are scheduled for the journal
+version of this work; Table~\ref{tab:priorwork} collects cited
+numbers under their own protocols as an informational, not controlled,
+positioning of the V4 result.
+
+\section{Conclusion}
+We presented a multimodal Mamba-augmented framework for noise-robust
+EEG biometric identification extending~\cite{vu2026aisei}: V4 combines
+a WaveNet+Mamba denoiser, a spectrogram Mamba branch, and a gated
+self-attention fusion module trained with auxiliary branch losses.
+Under the AEP-Hybrid protocol (Sec.~\ref{sec:setup}) on the PhysioNet
+AEP dataset, V4 attains the highest mean Precision@1 on all three
+noise families ($82.4\%$/$87.7\%$/$83.8\%$); held-out-subject AUROC
+$\approx 0.50$ motivates calibration as future work.
+
+\AtNextBibliography{\footnotesize}
+\setlength{\bibitemsep}{0pt plus 0.3ex}
+\printbibliography
+
+\end{document}

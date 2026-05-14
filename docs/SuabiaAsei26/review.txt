@@ -1,0 +1,217 @@
+3/12/26, 2:04 PM                    Gmail - [AISEI26] Your paper #1571237682 ('Biometric Identification Through Auditory EEG Signatures')
+
+
+
+                                                                                                          Dez Zhu <dezzhuge@gmail.com>
+
+
+
+  [AISEI26] Your paper #1571237682 ('Biometric Identification Through Auditory EEG
+  Signatures')
+  1 message
+
+  Ali Matar <amatar@jadara.edu.jo>                                                      Thu, Mar 12, 2026 at 5:16 AM
+  To: Ly Ngoc Vu <dezzhuge@gmail.com>, Bui Thi Ngoc Tran <tranbui2907@gmail.com>, Huynh Cong Bang
+  <bang_01036047@iuh.edu.vn>, Nguyen Minh Hanh <hanh_01036046@iuh.edu.vn>
+  Cc: Ali Matar <amatar@jadara.edu.jo>
+
+
+     Dear Mr. Ly Vu:
+
+     Congratulations - your paper #1571237682 ('Biometric Identification Through Auditory EEG Signatures') for AISEI26 has
+     been accepted and will be presented in the session titled __.
+
+     The reviews are below or can be found at 1571237682.
+
+     Blind Review 1
+
+     Strengths/Weakness: What are the major reasons to accept/reject the paper? [Be brief.]
+
+     Excellent research paper
+
+     Contribution/s & Detailed comments: What are the major issues addressed in the paper? Do you consider them
+     important? Comment on the degree of novelty, creativity and technical depth in the paper. Please provide
+     detailed comments that will be helpful to the TPC for assessing the paper, as well as feedback to the authors.
+
+     Healthcare Engineering and Biomedical AI
+
+     Originality: New or Novel contribution
+
+     Accept (8)
+
+     Significance of Topic: Relating to knowledge contribution
+
+     Accept (8)
+
+     Presentation: Clarity and Organisation of Content
+
+     Accept (8)
+
+     Blind Review 2
+
+     Strengths/Weakness: What are the major reasons to accept/reject the paper? [Be brief.]
+
+     Strengths (Reasons to Accept):
+
+     Addresses a Critical Real-World Gap: The paper tackles two
+     significant and practical limitations of current biometric systems:
+     vulnerability to noise and the closed-set assumption. This focus on
+     "open-set" scenarios and "noise-resilience" is highly
+     relevant for real-world deployment.
+
+     Technically Sound Approach: The proposed two-stage framework (denoising
+     + metric learning) is logical and leverages state-of-the-art deep learning
+     architectures (WaveNet, ResNet, angular margin losses). The combination is
+     a sensible and promising approach to the problem.
+
+https://mail.google.com/mail/u/2/?ik=a2c2432335&view=pt&search=all&permthid=thread-f:1859405619930960405&simpl=msg-f:1859405619930960405    1/4
+3/12/26, 2:04 PM                    Gmail - [AISEI26] Your paper #1571237682 ('Biometric Identification Through Auditory EEG Signatures')
+
+
+
+     Promising Quantitative Results: The reported performance metrics
+     (Precision@1 up to 98%, TAR@1%FAR up to 95%) are impressive and suggest the
+     framework is highly effective. The analysis on the benefit of decoupling
+     the objectives adds valuable insight.
+
+
+
+     Novel Application Domain: Applying this specific, robust framework to
+     "brain-derived signals" (EEG) for biometrics is a strong and
+     interesting case study, pushing the boundaries of non-traditional
+     biometrics.
+
+
+     Weaknesses (Reasons to Reject):
+
+     Lack of Specificity and Validation (from the Abstract): The
+     abstract is a summary, but for a rigorous review, the absence of concrete
+     details is a major concern. There is no mention of the dataset(s) used, the
+     number of subjects, the type of auditory stimuli, or a comparison against
+     existing state-of-the-art (SOTA) methods. The results, while high, are
+     presented in a vacuum.
+
+     Potential for Overclaiming: Terms like "systematically
+     addresses" and "robust solution" are strong. Without a
+     comparative analysis against other noise-robust or open-set methods, such
+     claims cannot be properly evaluated.
+
+
+
+     Incremental Contribution Risk: While the combination of WaveNet
+     denoising and metric learning for EEG biometrics might be novel, each
+     component individually is well-established. The paper's contribution might
+     be seen as an engineering application of existing tools rather than a
+     fundamental scientific breakthrough, depending on the depth of the
+     technical adaptation required.
+
+
+     Contribution/s & Detailed comments: What are the major issues addressed in the paper? Do you consider them
+     important? Comment on the degree of novelty, creativity and technical depth in the paper. Please provide
+     detailed comments that will be helpful to the TPC for assessing the paper, as well as feedback to the authors.
+
+     Major Issues Addressed: The paper addresses three major, interconnected issues in biometric authentication:
+
+     Noise Robustness: The vulnerability of biometric systems,
+     especially those using physiological signals like EEG, to various types of
+     environmental and physiological noise.
+
+     Open-Set Recognition: The practical requirement for a system to not only
+     identify known individuals but also reliably reject imposters or unknown
+     users, moving beyond the simplified closed-set assumption of most academic
+     studies.
+
+
+
+     Scalability: The need for a system that can gracefully accommodate new
+     users without full retraining, which is implied by the open-set and metric
+     learning approach.
+
+
+     Importance of the Issues: These issues are of paramount importance for the field. The vast majority of biometric research
+     is conducted in controlled environments under closed-set settings. Translating these successes to real-world, uncontrolled
+     conditions is the grand challenge of the field. Therefore, the paper's focus is on a highly significant and impactful set of
+     problems.
+
+     Degree of Novelty, Creativity, and Technical Depth:
+
+https://mail.google.com/mail/u/2/?ik=a2c2432335&view=pt&search=all&permthid=thread-f:1859405619930960405&simpl=msg-f:1859405619930960405    2/4
+3/12/26, 2:04 PM                    Gmail - [AISEI26] Your paper #1571237682 ('Biometric Identification Through Auditory EEG Signatures')
+     Novelty: The novelty appears to lie in the specific combination
+     and application of these techniques. Using a WaveNet for denoising raw (or
+     pre-processed) EEG signals for the purpose of biometric authentication is a
+     creative and well-justified choice. Similarly, applying deep metric
+     learning with angular margins to create an embedding space for EEG-based
+     identity is a strong methodological fit. The paper's own contribution of
+     "explicitly decoupling noise mitigation and embedding learning
+     objectives" is a key insight that demonstrates a thoughtful system
+     design.
+
+     Creativity: The creativity is evident in framing the biometric problem
+     as a two-stage pipeline that mirrors a "signal enhancement then
+     discrimination" approach, which is intuitive and effective.
+
+
+
+     Technical Depth: The abstract suggests significant technical depth.
+     Implementing and optimizing a WaveNet with a scale-invariant SNR objective
+     requires expertise. Integrating this with a ResNet backbone and angular
+     margin loss (like ArcFace or CosFace) for metric learning is non-trivial.
+     The ablation study mentioned ("highlights the importance of explicitly
+     decoupling") points to a rigorous experimental methodology. However,
+     the true depth can only be assessed by reviewing the full paper, including
+     architecture diagrams, training details, and a thorough analysis of failure
+     cases.
+
+
+     Detailed Feedback for Authors (to be included in the review):
+
+     The concept and results are compelling. To strengthen the paper,
+     the full manuscript must include a rigorous experimental section. Please
+     specify the EEG dataset(s) used, including size, number of subjects, and
+     the nature of the auditory stimuli.
+
+     A direct comparison with several strong baseline methods is crucial.
+     This should include traditional EEG biometric approaches as well as other
+     deep learning-based methods, both for closed-set and open-set
+     scenarios.
+
+
+
+     Provide more detail on the open-set evaluation protocol. How were
+     unknown users simulated? What were the specific FAR/FRR thresholds?
+
+
+
+     Elaborate on the "adaptive signal enhancement." How does the
+     WaveNet module adapt to different noise types?
+
+
+
+     Discuss the computational cost and latency of the two-stage framework,
+     as this is critical for real-time authentication applications.
+
+
+     Originality: New or Novel contribution
+
+     Accept (8)
+
+     Significance of Topic: Relating to knowledge contribution
+
+     Strong Accept (10)
+
+     Presentation: Clarity and Organisation of Content
+
+     Weak Accept (6)
+
+
+https://mail.google.com/mail/u/2/?ik=a2c2432335&view=pt&search=all&permthid=thread-f:1859405619930960405&simpl=msg-f:1859405619930960405    3/4
+3/12/26, 2:04 PM                    Gmail - [AISEI26] Your paper #1571237682 ('Biometric Identification Through Auditory EEG Signatures')
+     Regards,
+     The conference chairs
+
+
+
+
+https://mail.google.com/mail/u/2/?ik=a2c2432335&view=pt&search=all&permthid=thread-f:1859405619930960405&simpl=msg-f:1859405619930960405    4/4
+

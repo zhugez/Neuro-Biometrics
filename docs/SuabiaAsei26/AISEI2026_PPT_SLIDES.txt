@@ -1,0 +1,258 @@
+AISEI 2026 PPT DRAFT
+Paper: Biometric Identification Through Auditory EEG Signatures
+Suggested format: 10 slides, oral talk ~8-10 minutes
+Conference: International Conference on Artificial Intelligence for Sustainable Engineering and Innovation (AISEI 2026)
+Date/Venue: 27-28 April 2026 | Jadara University, Jordan | Hybrid
+Track: Healthcare Engineering and Biomedical AI
+
+GENERAL STYLE
+- Use English on slides.
+- Keep each slide to 3-5 bullets max.
+- Prefer one figure/table per technical slide.
+- Emphasize practical deployment, open-set recognition, and noise robustness.
+- Avoid overclaiming. Say "improves", "demonstrates", or "supports" instead of "solves".
+
+==================================================
+SLIDE 1 — TITLE
+==================================================
+On-slide text:
+Biometric Identification Through Auditory EEG Signatures
+Ly Ngoc Vu, Bui Thi Ngoc Tran, Huynh Cong Bang, Nguyen Minh Hanh
+Industrial University of Ho Chi Minh City, Vietnam
+AISEI 2026 | 27-28 April 2026 | Jadara University, Jordan
+Track: Healthcare Engineering and Biomedical AI
+
+Speaker note (VI):
+Xin chao hoi nghi AISEI 2026. Hôm nay tôi trình bày công trình "Biometric Identification Through Auditory EEG Signatures". Mục tiêu của nghiên cứu là xây dựng một framework xác thực EEG có thể hoạt động tốt hơn trong điều kiện nhiễu và trong bối cảnh open-set, tức là hệ thống không chỉ nhận diện người đã biết mà còn phải từ chối người lạ.
+
+Visual:
+- Put conference logo on the top-right.
+- Put 1 clean EEG waveform or brain signal background image with low opacity.
+
+==================================================
+SLIDE 2 — MOTIVATION
+==================================================
+On-slide text:
+Why EEG biometrics?
+- Conventional biometrics can be spoofed and degrade in uncontrolled environments.
+- EEG carries subject-specific brain responses and is harder to imitate.
+- Real deployments require robustness to noise, session variability, and unseen users.
+
+Key challenge:
+Most existing EEG authentication systems still assume a closed-set setting and limited noise variation.
+
+Speaker note (VI):
+Động lực chính là khoảng cách giữa điều kiện thí nghiệm và triển khai thực tế. EEG là một modality hấp dẫn vì khó giả mạo hơn các sinh trắc học truyền thống. Tuy nhiên EEG lại rất nhạy với nhiễu sinh lý, nhiễu môi trường và khác biệt giữa các phiên đo. Ngoài ra trong thực tế, hệ thống phải gặp cả người chưa từng xuất hiện trong tập huấn luyện, nên closed-set là chưa đủ.
+
+Visual:
+- Simple 3-icon row: spoofing risk, noisy signals, unseen users.
+
+==================================================
+SLIDE 3 — RESEARCH GAP AND CONTRIBUTIONS
+==================================================
+On-slide text:
+Research gap
+- Prior EEG biometrics often focus on closed-set classification.
+- Noise mitigation and identity learning are usually not optimized jointly.
+- Open-set performance under realistic noise is still underexplored.
+
+Our contributions
+- A two-stage framework that decouples denoising and representation learning.
+- WaveNet denoising with SI-SNR objective for adaptive signal enhancement.
+- Deep metric learning on ResNet embeddings for identification and unseen-user rejection.
+
+Speaker note (VI):
+Điểm mới của bài này không nằm ở việc phát minh một backbone hoàn toàn mới, mà nằm ở cách kết hợp và tách riêng hai mục tiêu: làm sạch tín hiệu trước, rồi mới học embedding nhận dạng. Đây cũng là điểm reviewer đánh giá tích cực: decoupling giúp thiết kế có logic hệ thống rõ ràng hơn và phù hợp với open-set authentication.
+
+Visual:
+- Left column: limitations of prior work.
+- Right column: 3 contribution bullets.
+
+==================================================
+SLIDE 4 — PROPOSED FRAMEWORK
+==================================================
+On-slide text:
+Two-stage authentication pipeline
+Noisy EEG -> WaveNet Denoiser -> Denoised EEG -> ResNet Metric Learning -> Embedding -> Prototype Matching -> Accept / Reject
+
+Why decouple the stages?
+- Stage I focuses on signal quality.
+- Stage II focuses on identity discrimination.
+- The separation improves interpretability and deployment flexibility.
+
+Speaker note (VI):
+Framework gồm hai tầng. Tầng đầu tiên xử lý bài toán enhancement để giảm méo tín hiệu do nhiễu. Tầng thứ hai học không gian embedding sao cho cùng danh tính thì gần nhau, khác danh tính thì tách xa nhau. Khi có truy vấn mới, hệ thống so khoảng cách embedding của truy vấn với prototype của từng người đã enroll và ra quyết định chấp nhận hay từ chối.
+
+Visual:
+- Use the paper's main framework figure if available.
+- Highlight the boundary between Stage I and Stage II with different colors.
+
+==================================================
+SLIDE 5 — STAGE I: NOISE-ADAPTIVE SIGNAL ENHANCEMENT
+==================================================
+On-slide text:
+Stage I: WaveNet denoiser
+- Learns a mapping from noisy EEG to cleaner EEG representations.
+- Optimized with scale-invariant SNR (SI-SNR).
+- Trained with mixed Gaussian, power-line, and EMG noise.
+- SNR levels used during training: 0, 5, 10, 20 dB.
+
+Why WaveNet?
+Dilated causal convolutions capture both short-range artifacts and long-range noise patterns.
+
+Speaker note (VI):
+Reviewer có hỏi rõ về tính "adaptive" của signal enhancement. Ở đây chúng ta trả lời trực diện: WaveNet dùng các dilated causal convolutions để nhìn được cả nhiễu cục bộ, ví dụ burst EMG, lẫn nhiễu có tính chu kỳ hoặc kéo dài như power-line. Trong huấn luyện, mô hình được tiếp xúc với nhiều loại nhiễu và nhiều mức SNR nên học cách khử nhiễu theo hướng dữ liệu.
+
+Visual:
+- Use the WaveNet architecture figure.
+- Add a small side panel showing the three noise types.
+
+==================================================
+SLIDE 6 — STAGE II: METRIC LEARNING AND OPEN-SET DECISION
+==================================================
+On-slide text:
+Stage II: Discriminative representation learning
+- ResNet backbone extracts identity-discriminative embeddings.
+- Metric losses improve intra-class compactness and inter-class separation.
+- Multi-Similarity and ArcFace give the strongest retrieval performance.
+
+Open-set decision rule
+- Build one prototype per enrolled subject.
+- Compute distance from query embedding to the nearest prototype.
+- Accept if d* <= tau, otherwise reject as unknown.
+- tau is calibrated at FAR = 1%.
+
+Speaker note (VI):
+Thay vì coi đây là bài toán classification đóng, chúng ta chuyển sang metric learning. Điều này tự nhiên hơn cho open-set vì hệ thống chỉ cần học một không gian biểu diễn tốt, sau đó quyết định dựa trên khoảng cách tới các prototype. Ngưỡng tau được hiệu chỉnh để FAR bằng 1%, tức là kiểm soát xác suất chấp nhận nhầm người lạ.
+
+Visual:
+- Draw a 2D embedding sketch with enrolled clusters and one unknown point outside the threshold.
+
+==================================================
+SLIDE 7 — DATASET AND EVALUATION PROTOCOL
+==================================================
+On-slide text:
+Dataset
+- Auditory Evoked Potential EEG-Biometric Dataset
+- 20 participants, 12 sessions per subject
+- Each session ~2 minutes
+- 4-second windows with 2-second overlap
+
+Open-set protocol
+- 16 known subjects (80%) for training/enrollment
+- 4 unknown subjects (20%) held out as unseen impostors
+- Known-subject epochs split into 64% train / 16% validation / 20% test
+
+Baselines
+- LSTM
+- BiLSTM
+- Single-stage ResNet-34 (without denoising)
+
+Speaker note (VI):
+Slide này rất quan trọng vì reviewer đã yêu cầu nêu rõ dataset, quy trình open-set và baseline. Chúng tôi dùng bộ Auditory Evoked Potential EEG-Biometric Dataset với 20 người, 12 phiên cho mỗi người. 16 người được dùng cho known set và 4 người còn lại hoàn toàn giữ lại như unknown set. Điều này giúp đánh giá đúng khả năng từ chối người chưa thấy trong huấn luyện.
+
+Visual:
+- One clean split diagram: 20 subjects -> 16 known / 4 unknown -> train/val/test.
+
+==================================================
+SLIDE 8 — MAIN RESULTS
+==================================================
+On-slide text:
+Performance against baselines
+
+Noise condition | Proposed P@1 | Proposed TAR@1%FAR
+Gaussian        | 93.80%       | 95.37%
+Power-line      | 98.15%       | 95.64%
+EMG             | 97.62%       | 95.51%
+
+Key comparisons under EMG noise
+- vs LSTM: +10.52 points in P@1
+- vs BiLSTM: +9.12 points in P@1
+- vs Single-stage ResNet-34: +0.96 points in P@1
+
+Speaker note (VI):
+Kết quả chính cho thấy mô hình hai giai đoạn vượt trội rõ rệt so với các baseline hồi tiếp, đặc biệt khi nhiễu phức tạp hơn. Dưới nhiễu EMG, cải thiện so với LSTM là hơn 10 điểm phần trăm về Precision@1. So với ResNet một giai đoạn, mức tăng không quá lớn nhưng ổn định, cho thấy phần signal enhancement vẫn mang lại giá trị bổ sung ngay cả khi backbone đã mạnh.
+
+Visual:
+- Use a compact comparison table or grouped bar chart.
+- Bold the proposed method row.
+
+==================================================
+SLIDE 9 — ABLATION, BEST SETUP, AND DEPLOYMENT FEASIBILITY
+==================================================
+On-slide text:
+Additional findings
+- Best retrieval result: 98.84% P@1 with ResNet-34 + Multi-Similarity.
+- ArcFace is also strong: 98.81% P@1 on ResNet-34.
+- The two-stage design consistently improves P@1 across noise conditions.
+- Under power-line noise, the full system reaches 98.15% P@1 and 95.64% TAR@1%FAR.
+
+Computational cost
+- Stage I: ~2.1M params, ~0.8G FLOPs, ~12 ms
+- Stage II: ~21.3M params, ~3.6G FLOPs, ~8 ms
+- End-to-end: ~23.4M params, ~4.4G FLOPs, ~20 ms on RTX 3060
+
+Speaker note (VI):
+Ngoài kết quả tổng quát, có hai điểm nên nhấn mạnh. Thứ nhất, Multi-Similarity và ArcFace là các objective tốt nhất cho retrieval. Thứ hai, chi phí tính toán vẫn đủ khả thi cho xác thực thời gian thực: tổng độ trễ khoảng 20 ms cho một query epoch 4 giây trên RTX 3060. Nghĩa là framework này có tiềm năng triển khai trên các edge device có GPU, dù với wearable thì vẫn cần tối ưu thêm.
+
+Visual:
+- Left: mini table of metric-loss comparison.
+- Right: compute/latency table.
+
+==================================================
+SLIDE 10 — LIMITATIONS, TAKEAWAY, AND FUTURE WORK
+==================================================
+On-slide text:
+Limitations
+- Evaluation uses one dataset with 20 subjects only.
+- Noise is synthetically added at fixed SNR levels.
+- Unknown set contains 4 subjects, so impostor diversity is limited.
+
+Takeaway
+Explicitly separating denoising and representation learning is a practical design choice for noise-resilient, open-set EEG authentication.
+
+Future work
+- Larger and more diverse EEG datasets
+- Cross-session and cross-device generalization
+- More advanced denoisers (e.g., state-space models / Mamba)
+- Further optimization for resource-constrained deployment
+
+Speaker note (VI):
+Để kết luận một cách cân bằng, chúng tôi không nói đây là lời giải cuối cùng cho EEG biometrics. Điểm mạnh của nghiên cứu là cho thấy decoupled design có hiệu quả và có tính triển khai. Tuy nhiên vẫn còn các giới hạn về quy mô dữ liệu, độ đa dạng unknown subjects và dạng nhiễu tổng hợp. Hướng tiếp theo là mở rộng dữ liệu, kiểm tra cross-device, và thử các mô hình khử nhiễu mạnh hơn.
+
+Visual:
+- Three limitation icons on the left, one takeaway sentence centered, future-work arrows on the right.
+
+==================================================
+OPTIONAL FINAL SLIDE — Q&A
+==================================================
+On-slide text:
+Thank you
+Questions and discussion
+
+Small footer:
+Biometric Identification Through Auditory EEG Signatures
+AISEI 2026
+
+==================================================
+LIKELY QUESTIONS TO PREPARE FOR
+==================================================
+1. Why EEG instead of face or fingerprint?
+Answer: EEG is harder to spoof and offers subject-specific neural signatures, but it is more sensitive to noise, which motivates this work.
+
+2. What is the main novelty?
+Answer: The key contribution is the explicit system-level decoupling of denoising and metric learning for open-set EEG authentication under realistic noise.
+
+3. Why is open-set evaluation important?
+Answer: Real deployments must reject unseen users; closed-set evaluation alone is insufficient for scalable authentication.
+
+4. Is the system real-time?
+Answer: On RTX 3060, end-to-end latency is about 20 ms per 4-second query epoch, which is suitable for real-time GPU-based deployment.
+
+5. What are the main limitations?
+Answer: Single dataset, 20 subjects, synthetic noise, and a relatively small unknown set.
+
+AUTHOR NOTE
+- Avoid saying "state-of-the-art" unless you are ready to defend direct comparisons beyond the included baselines.
+- Avoid claiming consistent TAR improvement under every noise type; focus on strong overall TAR around 95% and consistent P@1 gains.
+- If time is short, merge Slides 5 and 6, and merge Slides 9 and 10 to create a 7-8 slide version.

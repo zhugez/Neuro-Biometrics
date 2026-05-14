@@ -1,0 +1,358 @@
+     Biometric Identification Through Auditory EEG
+                        Signatures
+               1st Ly Ngoc Vu                          2nd Bui Thi Ngoc Tran                         3rd Huynh Cong Bang
+     Faculty of Information Technology            Faculty of Information Technology            Faculty of Information Technology
+   Industrial University, HCMC, Vietnam         Industrial University, HCMC, Vietnam         Industrial University, HCMC, Vietnam
+            dezzhuge@gmail.com                         tranbui2907@gmail.com                      bang 01036047@iuh.edu.vn
+
+      4th Nguyen Minh Hanh
+  Faculty of Information Technology
+Industrial University, HCMC, Vietnam
+     hanh 01036046@iuh.edu.vn
+
+
+   Abstract—Intelligent authentication systems for real-world        known limitations, such as security vulnerabilities, spoofing,
+deployment must be robust to noise, scalable to new users,           and limited adaptability. While recent advances in machine
+and capable of operating under open-set conditions. However,         learning and deep learning have significantly improved bio-
+many existing approaches remain constrained by closed-set
+assumptions and limited resilience to signal degradation, reducing   metric authentication performance, many existing methods
+their practical applicability. This research presents a noise-       remain constrained by closed-set assumptions, under which all
+resilient open-set authentication framework that addresses both      user identities are assumed to be known during training [1]–
+adaptive signal enhancement and discriminative representation        [3]. Such assumptions are unrealistic in practical deployments,
+learning. A WaveNet-based denoising module, optimized us-            where systems must continuously handle previously unseen
+ing a scale-invariant signal-to-noise ratio objective, mitigates
+environmental and physiological noise. Subsequently, a deep          users. Moreover, real-world sensory data are often corrupted
+metric learning module built on residual network backbones and       by environmental and physiological noise, resulting in de-
+angular margin-based losses learns a compact embedding space         graded performance and reduced reliability [1], [4].
+for reliable identity discrimination and unseen-user detection.      To address these challenges, representation learning and deep
+The proposed framework is evaluated on the Auditory Evoked           metric learning have emerged as powerful paradigms for
+Potential Electroencephalography–Biometric Dataset comprising
+20 participants across 12 recording sessions each, under three       intelligent authentication. By learning discriminative embed-
+noise conditions (Gaussian, power-line, and electromyographic).      ding spaces that preserve semantic similarity, metric learning
+Experimental results show that the two-stage approach achieves       enables identity verification, retrieval, and open-set recognition
+up to 98.15% retrieval precision and 95.64% true acceptance          within a unified framework [5]–[8]. However, the effectiveness
+rate at 1% false acceptance rate, outperforming single-stage         of embedding-based authentication systems is highly sensitive
+baselines by margins of 0.96–10.52 percentage points under
+electromyographic noise. Further analysis highlights the benefit     to the quality of the input signal. In noisy conditions, poorly
+of explicitly decoupling noise mitigation and embedding learning     structured embeddings can significantly impair both discrim-
+objectives in intelligent authentication systems.                    ination accuracy and unseen-user detection, underscoring the
+   Index Terms—Biometric identification, EEG authentication,         need for robust signal enhancement mechanisms [1], [4].
+Open-set recognition, Deep metric learning, Signal enhancement.      In parallel, recent advances in deep neural architectures for
+                                                                     signal enhancement have demonstrated strong potential to
+                                                                     mitigate noise in complex, non-stationary signals. Models
+                      I. I NTRODUCTION
+                                                                     such as WaveNet have shown remarkable ability to learn
+   The rapid proliferation of intelligent systems in security-       signal structures directly from raw data, enabling adaptive
+sensitive applications has intensified the demand for authenti-      denoising across diverse noise conditions [13]. Despite these
+cation mechanisms that are not only accurate but also robust,        advances, integrating noise-adaptive signal enhancement with
+scalable, and adaptable to real-world conditions. Modern au-         discriminative representation learning for open-set authentica-
+thentication systems are increasingly deployed in dynamic en-        tion remains underexplored, particularly from a system-level
+vironments such as smart devices, wearable technologies, and         perspective [1], [2].
+cyber-physical systems, where signal quality, user populations,      This research addresses these gaps by proposing an intel-
+and operating conditions cannot be strictly controlled. As a         ligent authentication framework that considers both noise
+result, intelligent authentication solutions must handle noisy       resilience and open-set recognition. The framework integrates
+inputs, accommodate newly encountered users, and operate             a WaveNet-based adaptive denoising module with a deep
+reliably in open-set scenarios [1]–[3].                              metric-learning architecture built on ResNet backbones and
+Traditional authentication approaches, including password-           angular-margin–based loss functions [7], [8], [11]. By com-
+based methods and conventional biometric systems, face well-         bining noise-aware signal enhancement with embedding-level
+discrimination, the proposed system is designed to operate            Zhang et al. [3] introduced MindID, an attention-based recur-
+reliably in realistic environments and scale to previously            rent neural network for person identification from brain waves.
+unseen users [1], [5], [6]. Using brain-derived signals as            While these methods report promising results, they typically
+a representative case study, experiments on the Auditory              operate under closed-set assumptions and do not incorporate
+Evoked Potential EEG–Biometric Dataset (20 subjects, 12               explicit noise mitigation stages, leaving a gap in practical
+sessions) demonstrate that the proposed approach achieves             robustness.
+high robustness and strong open-set recognition performance           To address this limitation, open-set recognition has been in-
+[1], [2], [4]. The results highlight the benefit of decoupling        creasingly explored in authentication systems. Metric learning
+noise mitigation and representation learning objectives when          has emerged as an effective paradigm for open-set authentica-
+designing deployable intelligent authentication systems [7],          tion by learning embedding spaces in which identity similarity
+[8].                                                                  is preserved through distance relationships rather than fixed
+   The main contributions of this work are as follows:                class assignments. Loss functions such as contrastive loss [5]
+  • A two-stage framework that explicitly decouples noise-            and triplet loss [6] have been widely adopted to improve
+    adaptive signal enhancement from discriminative repre-            discriminative representation learning. More recently, angular
+    sentation learning, enabling targeted optimization of each        margin–based losses, including ArcFace, have demonstrated
+    objective independently.                                          superior embedding compactness and inter-class separability,
+  • Integration of a WaveNet-based denoiser with a scale-
+                                                                      leading to improved stability in identity discrimination and
+    invariant SNR objective that adapts to diverse noise types        retrieval tasks [7]. Nevertheless, the effectiveness of metric
+    (Gaussian, power-line, EMG) through learned dilated               learning–based authentication remains highly sensitive to input
+    causal convolution filters.                                       noise and signal variability.
+  • A comprehensive evaluation under realistic noise con-
+                                                                      Robustness to noise is a critical challenge in practical au-
+    ditions, demonstrating consistent improvements over               thentication systems, as real-world signals are often corrupted
+    single-stage baselines (LSTM, BiLSTM, ResNet-34) in               by environmental interference and physiological artifacts [4].
+    both closed-set retrieval and open-set verification.              Traditional filtering and handcrafted feature extraction meth-
+                                                                      ods have been widely used to mitigate noise, but their per-
+                      II. R ELATED WORK                               formance is limited under complex, non-stationary conditions.
+                                                                      Recent deep learning–based denoising approaches, particularly
+   Intelligent authentication systems have attracted growing          those capable of modeling temporal dependencies, have shown
+attention as security requirements increase in dynamic and            strong potential for adaptive noise suppression. Despite these
+resource-constrained environments such as smart devices,              advances, most existing studies treat signal enhancement and
+wearable platforms, and cyber–physical systems. Traditional           representation learning as independent components, without
+authentication mechanisms, including passwords and token-             explicitly optimizing their interaction for open-set authentica-
+based methods, are prone to well-known security vulnera-              tion.
+bilities. At the same time, conventional biometric systems            Brain-derived signals have also been explored as an alternative
+based on facial images, fingerprints, or voice signals remain         authentication modality due to their inherent uniqueness and
+susceptible to spoofing attacks [1]. As a result, learning-based      resistance to spoofing. Prior studies have reported promis-
+authentication approaches have been widely investigated to            ing identification performance using both traditional machine
+enhance robustness and adaptability.                                  learning and deep learning models [1]–[3]. However, these
+Early learning-based authentication studies primarily focused         systems remain vulnerable to noise, session variability, and
+on closed-set classification, assuming that all user identities are   deployment constraints, and open-set operation is often in-
+known during training. Using neural or physiological signals,         sufficiently addressed [4]. Additionally, ethical considerations
+Zhang et al. employed attention-based recurrent neural net-           around privacy and user consent are crucial when deploying
+works to achieve high identification accuracy under controlled        brain-derived signal systems. Acknowledging these concerns
+conditions [3]. Subsequent works extended this line of work           can build trust with users by ensuring their data is handled
+by applying convolutional and Siamese network architectures           with care, transparency, and in compliance with relevant
+to raw signal representations, demonstrating competitive per-         regulations. By addressing these ethical aspects, the potential
+formance while reducing reliance on handcrafted features [1],         of brain-derived signals as a secure and reliable modality can
+[2]. However, most of these approaches remain constrained by          be fully realized, anticipating stakeholders’ concerns while
+closed-set assumptions, limiting their scalability in real-world      reinforcing their value in authentication.
+deployments.                                                          In summary, although prior work has demonstrated the effec-
+Specifically, Fallahi et al. [1] proposed BrainNet, which lever-      tiveness of metric learning and noise suppression for authen-
+ages Siamese Networks for brainwave-based biometric recog-            tication, there remains a lack of integrated frameworks that
+nition, achieving improved generalization through pairwise            jointly address noise resilience, discriminative representation
+similarity learning. Yang et al. [2] investigated triplet loss–       learning, and open-set recognition at the system level. This gap
+based deep learning for EEG authentication, demonstrating             motivates the proposed approach. Unlike prior EEG biometric
+the benefit of metric-based training over softmax classification.     studies that rely on single-stage classification models, this
+work formulates EEG authentication as a two-stage learning               variations. By explicitly performing denoising before repre-
+problem, decoupling deep representation learning from iden-              sentation learning, this stage reduces noise-induced distortions
+tity discrimination via metric learning [5]–[8]. This design             and improves signal consistency across sessions and operating
+enables robust open-set authentication and superior general-             conditions. Fig. 2
+ization to unseen subjects.                                              Adaptive mechanism. The WaveNet architecture achieves
+                                                                         adaptability to diverse noise types through its stack of dilated
+                       III. M ETHODOLOGY                                 causal convolutions with exponentially increasing dilation
+   This study proposes a two-stage authentication framework              rates (1, 2, 4, 8 × 2 blocks). This design creates a large ef-
+that enhances robustness and open-set capability by explic-              fective receptive field that captures both short-range artifacts
+itly decoupling noise mitigation from representation learning.           (e.g., high-frequency EMG bursts) and long-range correlations
+The overall architecture consists of a noise-adaptive signal             (e.g., slow-drift power-line interference at 50/60 Hz) without
+enhancement stage followed by a deep metric learning–based               requiring explicit noise-type classification. During training, the
+embedding stage, as illustrated in Fig. 1.                               model is exposed to a mixture of Gaussian, power-line, and
+                                                                         EMG noise at varying SNR levels in {0, 5, 10, 20} dB, en-
+                                                                         abling the learned filters to implicitly distinguish and suppress
+                                                                         heterogeneous noise patterns in a data-driven manner.
+                                                                         Noise synthesis and denoiser training. To train Stage I, we
+                                                                         construct paired samples (xnoisy , xclean ) using only subjects in
+                                                                         Strain . We define xclean as the pseudo-clean EEG from dataset
+                                                                         and generate xnoisy = xclean + αn, where n is sampled from
+                                                                         Gaussian / power-line / EMG noise and α is set to match
+                                                                         SNR levels in {0, 5, 10, 20} dB. Care is taken to ensure no
+                                                                         information leakage between training and evaluation splits
+                                                                         during noise mixing. The WaveNet denoiser is optimized with
+                                                                         the SI-SNR objective to recover xclean from xnoisy .
+
+                                                                         B. Stage II: Discriminative Representation Learning
+                                                                            In the second stage, denoised signals are processed by a
+                                                                         deep metric learning model to learn identity-discriminative
+                                                                         embeddings [5], [6]. Residual convolutional neural networks
+                                                                         (ResNet) are used as backbone architectures due to their
+                                                                         stability and strong representation capacity [11]. Angular
+                                                                         margin–based loss functions are employed to enforce compact
+                                                                         intra-class clustering and clear inter-class separation in the
+                                                                         embedding space [7]. In addition, general pair-weighted metric
+                                                                         objectives (e.g., multi-similarity loss) can further improve
+                                                                         embedding discrimination by leveraging multiple positive and
+                                                                         negative relationships within a batch [8]. This embedding-
+                                                                         based formulation naturally supports open-set recognition,
+                                                                         enabling the detection of unseen users based on distance to
+                                                                         learned identity prototypes in the embedding space [5], [6].
+
+                                                                                          IV. E XPERIMENTAL S ETUP
+                                                                            Dataset. We used the publicly available Auditory Evoked
+                                                                         Potential EEG–Biometric Dataset from PhysioNet (2024),
+  Fig. 1. Overview of the proposed two-stage authentication framework.   collected at the University of Chieti–Pescara, Italy [4], for
+                                                                         our experiments. This dataset consists of EEG recordings
+                                                                         from 20 participants, each recorded over 12 sessions lasting
+A. Stage I: Noise-Adaptive Signal Enhancement                            approximately two minutes each, under two main condi-
+   The first stage aims to mitigate environmental and physio-            tions: resting-state (eyes open and eyes closed) and auditory
+logical noise that commonly degrades real-world signals [4]. A           stimulation. We selected this dataset because its structure
+WaveNet-based denoising model is employed to learn a direct              allows examination of both inter- and intra-subject variabil-
+mapping from noisy inputs to cleaner signal representations              ity, which is critical for evaluating biometric authentication
+[13]. The model is trained using a scale-invariant signal-               systems. During the auditory stimulation, subjects listened to
+to-noise ratio (SI-SNR) objective, which encourages faithful             native-language speech, foreign-language speech, and neutral
+signal reconstruction while remaining insensitive to amplitude           sounds, presented through both in-ear and bone-conduction
+                                           Fig. 2. WaveNetDenoiser architecture for EEG denoising.
+
+
+
+headphones. The use of these two headphone types is relevant            hyperparameter tuning and threshold calibration.
+because it introduces variability in auditory stimulus delivery            Enrollment. From Seval , we define an enrolled set Senroll
+methods, which may affect the resulting EEG responses and               and compute a prototype for each  P enrolled subject c using
+thus provides a means to assess the generalizability and robust-        enrollment epochs Ec : µc = |E1c | x∈Ec f (x). The remaining
+ness of biometric authentication. Furthermore, the combination          subjects are treated as unknown: Sunknown = Seval \ Senroll .
+of multiple types of auditory stimuli and different hardware               Decision rule. For a query x, we compute z = f (x) and
+enables us to simulate real-world heterogeneity in experimen-           d∗ = minc∈Senroll ∥z − µc ∥2 . We accept the closest identity if
+tal conditions, providing insight into how such factors might           d∗ ≤ τ ; otherwise we reject as unknown.
+influence authentication accuracy. The inclusion of multiple               Threshold calibration. The threshold τ is calibrated with-
+sessions introduces substantial inter-session variability, making       out using test queries, using a held-out calibration split of
+this dataset well-suited for evaluating robustness and open-            enrolled subjects (e.g., separate sessions/epochs). We select
+set authentication performance. Auditory stimulation elicits            τ to satisfy a target False Acceptance Rate (FAR) of 1%
+measurable evoked responses in EEG signals, forming subject-            on the calibration set. The FAR is defined as the frac-
+specific patterns across sessions. Such brain-derived signatures        tion of impostor queries from Sunknown incorrectly accepted:
+are inherently more difficult to spoof than conventional bio-           FAR(τ ) = |{x ∈ Sunknown : d∗ (x) ≤ τ }|/|Sunknown |. The
+metrics, but they are sensitive to noise and session variability.       corresponding False Rejection Rate (FRR) at this operating
+   Protocol and baselines. EEG recordings were segmented                point is FRR(τ ) = 1−TAR(τ ). For example, at TAR@1%FAR
+into fixed-length epochs and divided into training and test sets        ≈ 95.64% under power-line noise, the FRR is approximately
+using a subject-independent protocol, ensuring that test identi-        4.36%, indicating that only a small fraction of legitimate users
+ties were not seen during training. We compared our proposed            are incorrectly rejected. Once selected, τ is fixed for all test
+two-stage framework against several deep learning baselines,            evaluations; each model is calibrated with the same procedure
+including recurrent models (LSTM and BiLSTM) [9], [10]                  for fairness.
+and single-stage convolutional architectures trained on raw
+signals without explicit denoising [1]–[3]. All methods were                             V. R ESULTS AND D ISCUSSION
+trained under identical conditions to ensure fair comparison.
+Performance was evaluated using Precision@1 (P@1) for
+identity retrieval and TAR (%) for open-set acceptance of
+known users [5], [6].
+   Open-set protocol (subject-independent). We adopt a
+subject-independent evaluation where the training and evalua-
+tion subject sets are disjoint: Strain ∩Seval = ∅. The embedding
+network f (·) is trained only on Strain . Specifically, 16 subjects
+(80%) form the known set Sknown and the remaining 4 subjects            Fig. 3. Performance comparison between single-stage recurrent baselines
+(20%) form the unknown set Sunknown . The 4 unknown subjects            (LSTM and BiLSTM).
+are selected randomly with a fixed seed to ensure reproducibil-
+ity. Since Sknown and Sunknown are disjoint by design, any query           Experimental results show that the proposed two-stage
+from the unknown subjects should be rejected by the system.             framework consistently outperforms single-stage deep learn-
+For the 16 known subjects, we further split their epochs                ing baselines. As illustrated in Fig. 3, recurrent models
+using a stratified shuffle split into training (64%), validation        (LSTM/BiLSTM) provide competitive performance under
+(16%), and test (20%) subsets. The validation split is used for         clean conditions. Still, their reliability degrades under noise
+and session variability, which is consistent with the known                                   TABLE II
+sensitivity of temporal models to distribution shifts and cor-       P ERFORMANCE COMPARISON OF DEEP METRIC LEARNING LOSSES ON
+                                                                                       R ES N ET BACKBONES .
+rupted inputs [9], [10].
+   Comparison with baseline methods. We compare our pro-                          Backbone       Loss Function        Accuracy (%)
+posed two-stage framework against three baseline approaches:                      ResNet-18      Triplet Loss             97.89
+                                                                                  ResNet-18      Contrastive Loss         97.96
+LSTM, BiLSTM, and Single-Stage ResNet-34 (trained directly                        ResNet-18      Multi-Similarity         98.67
+on noisy data without enhancement). As shown in Table I,                          ResNet-18      ArcFace                  98.60
+the recurrent baselines (LSTM and BiLSTM) achieve reason-                         ResNet-34      Triplet Loss             94.27
+                                                                                  ResNet-34      Contrastive Loss         98.07
+able accuracy in low-noise scenarios but their performance                        ResNet-34      Multi-Similarity         98.84
+drops sharply as noise complexity increases. Under EMG                            ResNet-34      ArcFace                  98.81
+noise, LSTM achieves P@1 of 87.10% and BiLSTM achieves                            ResNet-50      Triplet Loss             92.76
+                                                                                  ResNet-50      Contrastive Loss         97.65
+88.50%, while our proposed method achieves 97.62%—an                              ResNet-50      Multi-Similarity         98.52
+improvement of over 9 percentage points. The Single-Stage                         ResNet-50      ArcFace                  98.56
+ResNet-34 (without denoising) provides a stronger baseline,
+achieving P@1 of 96.66% under EMG noise. By integrating
+the WaveNet denoiser (Two-Stage), performance improves             under Gaussian, power-line, and EMG noise, suggesting that
+to 97.62% (+0.96%). More importantly, open-set robustness          explicit enhancement improves downstream embedding dis-
+(TAR@1%FAR) improves from 95.25% to 95.51%. This im-               crimination. (Note that SI-SNR is included as a reconstruction-
+provement is consistent across all noise types, validating that    oriented indicator of denoising quality [12].)
+explicit signal enhancement helps the metric learning model
+generate more discriminative and stable embeddings.                                          TABLE III
+                                                                     P ERFORMANCE OF THE PROPOSED TWO - STAGE FRAMEWORK UNDER
+                                                                                    DIFFERENT NOISE CONDITIONS .
+                          TABLE I
+ C OMPARISON WITH BASELINE METHODS (P@1 AND TAR@1%FAR).
+                                                                     Noise           Model                               P@1        SI-SNR (dB)
+                                                                     Gaussian        ResNet-34 + Multi-Similarity       0.9380          12.62
+ Noise        Method                     P@1 (%)   TAR@1%FAR (%)
+                                                                     Gaussian        ResNet-18 + Multi-Similarity       0.9424          12.61
+ Gaussian     LSTM (Single-stage)         89.21        88.45
+ Gaussian     BiLSTM (Single-stage)       90.15        89.12         Gaussian        ResNet-34 + ArcFace                0.9336          12.69
+ Gaussian     ResNet-34 (Single-stage)    93.31        95.38         Power-line      ResNet-34 + Multi-Similarity       0.9815          35.55
+ Gaussian     Proposed (Two-stage)        93.80        95.37         Power-line      ResNet-18 + Multi-Similarity       0.9842          34.09
+ Power-line   LSTM (Single-stage)         85.40        82.10         Power-line      ResNet-34 + ArcFace                0.9806          35.89
+ Power-line   BiLSTM (Single-stage)       86.75        83.50         EMG             ResNet-34 + Multi-Similarity       0.9762          14.18
+ Power-line   ResNet-34 (Single-stage)    96.92        95.38         EMG             ResNet-18 + Multi-Similarity       0.9626          14.17
+ Power-line   Proposed (Two-stage)        98.15        95.64         EMG             ResNet-34 + ArcFace                0.9644          14.09
+ EMG          LSTM (Single-stage)         87.10        85.30
+ EMG          BiLSTM (Single-stage)       88.50        86.20
+ EMG          ResNet-34 (Single-stage)    96.66        95.25          To quantify the contribution of Stage I, Table IV presents
+ EMG          Proposed (Two-stage)        97.62        95.51       an ablation study comparing single-stage training versus the
+                                                                   full two-stage pipeline under each noise condition. Removing
+A. Effect of Metric Learning Objectives                            the noise-adaptive enhancement module results in a consistent
+   Table II compares different deep metric learning objectives     drop in P@1, indicating that denoising improves embedding
+on ResNet backbones. Across architectures, metric learning         stability and helps preserve the discriminative structure for
+losses significantly improve discriminative embeddings com-        unseen-user detection. These findings support the hypothesis
+pared with conventional closed-set formulations by explicitly      that explicitly separating noise mitigation from representation
+optimizing distances in the embedding space [5], [6]. In par-      learning yields a more robust and deployable authentication
+ticular, multi-similarity loss and ArcFace achieve the strongest   pipeline.
+performance, indicating better intra-class compactness and
+inter-class separability [7], [8]. ResNet backbones are used                                  TABLE IV
+                                                                    A BLATION STUDY OF THE PROPOSED TWO - STAGE FRAMEWORK UNDER
+due to their stable optimization and strong representational                         DIFFERENT NOISE CONDITIONS .
+capacity [11].
+                                                                    Noise         Framework      Model                            P@1     TAR (%)
+   Overall, the proposed approach maintains high identity           Gaussian      Single-stage   ResNet-34 + Multi-Similarity    0.9331    95.38
+retrieval performance (P@1 up to 98.84%) and achieves               Gaussian      Two-stage      ResNet-34 + Multi-Similarity    0.9380    94.37
+                                                                    Power-line    Single-stage   ResNet-34 + Multi-Similarity    0.9692    95.38
+strong open-set verification performance (TAR@1%FAR up              Power-line    Two-stage      ResNet-34 + Multi-Similarity    0.9815    95.64
+to 95.64%), demonstrating robust generalization beyond the          EMG           Single-stage   ResNet-34 + Multi-Similarity    0.9666    95.25
+                                                                    EMG           Two-stage      ResNet-34 + Multi-Similarity    0.9762    95.51
+closed-set assumption commonly adopted in earlier EEG bio-
+metric systems [1]–[3].
+                                                                     From a system-level perspective, the proposed two-stage
+B. Robustness Under Noise and Ablation Study                       design enables targeted optimization of enhancement and
+  Table III reports P@1 and SI-SNR across different noise          embedding objectives, improving interpretability and robust-
+types. The results indicate that the framework remains stable      ness in realistic conditions. This is particularly important for
+EEG-based authentication, where session variability and non-         retrieval and open-set verification, supporting the value of
+stationary noise frequently degrade performance [1], [2], [4].       the decoupled two-stage design. With an end-to-end inference
+                                                                     latency of approximately 20 ms, the framework is suitable
+C. Computational Cost and Latency
+                                                                     for real-time applications. However, the current evaluation is
+   For practical deployment in real-time authentication scenar-      limited to a single dataset of 20 subjects; future work should
+ios, computational efficiency is an important consideration.         validate generalization across larger and more heterogeneous
+Table V summarizes the model complexity and inference                populations. The proposed design offers a practical and de-
+latency of each stage measured on a single NVIDIA RTX                ployable solution for secure authentication and can be ex-
+3060 GPU with 4-second input epochs.                                 tended to other intelligent sensing and biometric applications.
+
+                           TABLE V                                                           VII. F UTURE W ORK
+               C OMPUTATIONAL COST OF EACH STAGE .                      Two directions are promising for future research. First, we
+   Module                       Params   FLOPs    Latency (ms)       will expand the evaluation to larger, more diverse EEG datasets
+   Stage I: WaveNet Denoiser    ∼2.1M    ∼0.8G        ∼12            (e.g., more subjects, extended time spans, additional acquisi-
+   Stage II: ResNet-34 + Head   ∼21.3M   ∼3.6G        ∼8             tion devices, and environments) to better assess cross-session
+   Total (end-to-end)           ∼23.4M   ∼4.4G        ∼20
+                                                                     and cross-device generalization. Second, we will investigate
+                                                                     more advanced denoising architectures beyond WaveNet, such
+   The total end-to-end inference latency for processing a
+                                                                     as state-space sequence models (e.g., Mamba layers), to im-
+single 4-second query epoch is approximately 20 ms, well
+                                                                     prove robustness under non-stationary artifacts and real-world
+within the requirements for real-time authentication (typically
+                                                                     noise, and to study whether end-to-end optimization further
+<500 ms). The WaveNet denoiser accounts for roughly 60%
+                                                                     benefits open-set authentication.
+of the inference time despite having fewer parameters, due to
+its sequential dilated convolution structure. The total model                                     R EFERENCES
+size of ∼23.4M parameters is comparable to standard mobile-           [1] M. Fallahi, T. Strufe, and P. Arias-Cabarcos, “BrainNet: Improving
+deployable models. These results suggest that the two-stage               Brainwave-Based Biometric Recognition with Siamese Networks,” in
+framework is feasible for deployment on GPU-equipped edge                 Proc. IEEE PerCom, 2023, pp. 53–60.
+                                                                      [2] H. Yang, W. Zheng, Y. Zhang, and B. L. Lu, “EEG Authentication Based
+devices, though further optimization (e.g., model pruning,                on Deep Learning of Triplet Loss,” Neural Network World, vol. 32, no. 5,
+quantization) would be beneficial for resource-constrained                pp. 269–283, 2022.
+wearable platforms.                                                   [3] X. Zhang, L. Yao, S. S. Kanhere, Y. Liu, T. Gu, and K. Chen,
+                                                                          “MindID: Person Identification from Brain Waves through Attention-
+D. Limitations                                                            Based Recurrent Neural Network,” arXiv:1711.06149, 2017.
+                                                                      [4] N.    A.     Alzahab     et   al.,   “Auditory    Evoked      Potential
+   Several limitations should be acknowledged. First, the eval-           Electroencephalography-Biometric Dataset,” Data in Brief, vol. 57,
+uation is conducted on a single dataset with 20 subjects; gen-            p. 111065, 2024.
+                                                                      [5] R. Hadsell, S. Chopra, and Y. LeCun, “Dimensionality Reduction by
+eralization to larger populations and different EEG acquisition           Learning an Invariant Mapping,” in Proc. IEEE CVPR, 2006, pp. 1735–
+hardware remains to be validated. Second, the noise synthesis             1742.
+procedure uses additive noise at fixed SNR levels, which may          [6] F. Schroff, D. Kalenichenko, and J. Philbin, “FaceNet: A Unified
+                                                                          Embedding for Face Recognition and Clustering,” in Proc. IEEE CVPR,
+not fully capture the complexity of real-world noise mixtures.            2015, pp. 815–823.
+Third, while the end-to-end latency is suitable for GPU-              [7] J. Deng, J. Guo, N. Xue, and S. Zafeiriou, “ArcFace: Additive Angular
+equipped devices, deployment on ultra-low-power wearable                  Margin Loss for Deep Face Recognition,” in Proc. IEEE/CVF CVPR,
+                                                                          2019, pp. 4690–4699.
+platforms would require model compression techniques not              [8] X. Wang et al., “Multi-Similarity Loss with General Pair Weighting for
+explored in this work. Finally, the 4-subject unknown set may             Deep Metric Learning,” in Proc. IEEE/CVF CVPR, 2019, pp. 5022–
+be insufficient to capture the full diversity of impostor patterns        5030.
+                                                                      [9] S. Hochreiter and J. Schmidhuber, “Long Short-Term Memory,” Neural
+in practical scenarios.                                                   Computation, vol. 9, no. 8, pp. 1735–1780, 1997.
+                                                                     [10] A. Graves and J. Schmidhuber, “Framewise Phoneme Classification with
+                        VI. C ONCLUSION                                   Bidirectional LSTM,” Neural Networks, vol. 18, no. 5–6, pp. 602–610,
+                                                                          2005.
+   This research presented a two-stage intelligent authenti-         [11] K. He, X. Zhang, S. Ren, and J. Sun, “Deep Residual Learning for
+cation framework that integrates adaptive noise mitigation                Image Recognition,” in Proc. IEEE CVPR, 2016, pp. 770–778.
+with deep metric learning-based representation learning. By          [12] Y. Luo and N. Mesgarani, “TasNet: Time-Domain Audio Separation
+                                                                          Network for Real-Time, Single-Channel Speech Separation,” in Proc.
+explicitly decoupling denoising from identity discrimination,             IEEE ICASSP, 2018, pp. 696–700, doi: 10.1109/ICASSP.2018.8462116.
+the proposed approach enhances robustness, scalability, and          [13] A. van den Oord et al., “WaveNet: A Generative Model for Raw Audio,”
+open-set recognition. Experimental results on the Auditory                arXiv:1609.03499, 2016.
+Evoked Potential EEG–Biometric Dataset (20 subjects, 12
+sessions) demonstrate that the framework outperforms conven-
+tional single-stage deep learning models, achieving P@1 up to
+98.15% and TAR@1%FAR up to 95.64% across three noise
+conditions. The ablation study confirms that integrating noise-
+adaptive enhancement consistently improves both closed-set
+

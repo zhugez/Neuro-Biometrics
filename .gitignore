@@ -36,3 +36,12 @@ client_secret*.json
 CLAUDE.md
 GEMINI.md
 .gemini/
+
+# Editor/auto-generated caches
+**/Adobe Premiere Pro Audio Previews/
+**/Adobe Premiere Pro Video Previews/
+**/Adobe Premiere Pro Captured and Generated/
+**/Auto-Save/
+*.cfa
+*.pek
+*.wav

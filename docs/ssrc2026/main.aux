@@ -1,0 +1,85 @@
+\relax 
+\citation{b12,b13,b14}
+\citation{b11}
+\citation{b6,b7}
+\citation{b1}
+\citation{b3,b4}
+\citation{b11}
+\citation{b1}
+\citation{b12}
+\citation{b14}
+\citation{b13}
+\citation{b12}
+\citation{b17}
+\citation{b19}
+\@writefile{toc}{\contentsline {section}{\numberline {I}Introduction}{1}{}\protected@file@percent }
+\newlabel{sec:introduction}{{I}{1}{}{section.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {II}Related Work}{1}{}\protected@file@percent }
+\citation{b2,b10}
+\citation{b1}
+\citation{b4}
+\citation{b3}
+\citation{b15}
+\citation{b18}
+\citation{b6}
+\citation{b7}
+\citation{b9}
+\citation{b8}
+\citation{b16}
+\citation{b1}
+\citation{b2,b10}
+\citation{b10}
+\citation{b5}
+\@writefile{toc}{\contentsline {section}{\numberline {III}Method}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-A}}Overall Pipeline}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-B}}Stage I: Noise-Conditioned Waveform Denoiser}{2}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Two-stage decomposition: a noise-adaptive enhancement stage feeds a discriminative embedding stage. V4 augments the second stage with a spectrogram branch and gated self-attention fusion.}}{2}{}\protected@file@percent }
+\newlabel{fig:two-stages}{{1}{2}{}{figure.1}{}}
+\newlabel{eq:sisnr}{{1}{2}{}{equation.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-C}}Stage II: Dual-View Biometric Embedder}{2}{}\protected@file@percent }
+\citation{b1}
+\citation{b6}
+\citation{b7}
+\citation{b20}
+\citation{b11}
+\citation{b1}
+\newlabel{eq:fusion}{{2}{3}{}{equation.2}{}}
+\newlabel{eq:joint}{{3}{3}{}{equation.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {IV}Experimental Setup}{3}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces V4 multimodal architecture. The WaveNet+Mamba denoiser feeds two parallel branches: a ResNet metric embedder on the denoised waveform and a spectrogram Mamba branch with frequency- and time-axis sweeps. A gated self-attention fusion module fuses the two L2-normalized embeddings into a single 128-d biometric embedding. Auxiliary metric losses on each branch (dashed) prevent fusion collapse during joint training.}}{4}{}\protected@file@percent }
+\newlabel{fig:v4-arch}{{2}{4}{}{figure.2}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces Best Precision@1 (P@1) per version and noise type. Higher is better. V3 is a single-seed quick run.}}{4}{}\protected@file@percent }
+\newlabel{tab:cross}{{I}{4}{}{table.1}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {II}{\ignorespaces V4 multimodal results, mean$\pm $std over three seeds. The ResNet-34+ArcFace head is the strongest by P@1 on all noise families.}}{4}{}\protected@file@percent }
+\newlabel{tab:v4}{{II}{4}{}{table.2}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {V}Results and Discussion}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-A}}Cross-Version Best P@1}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-B}}Detailed V4 Results}{4}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces Architectural ablation on ResNet-34+ArcFace by P@1. $\Delta $ rows are V4 minus V1. Stage~I is retrained independently per version, so SI-SNR is not used here as an ablation metric.}}{4}{}\protected@file@percent }
+\newlabel{tab:ablation}{{III}{4}{}{table.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-C}}Ablation: Mamba and Multimodal Fusion}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-D}}Discussion}{4}{}\protected@file@percent }
+\citation{b1}
+\bibcite{b1}{1}
+\bibcite{b2}{2}
+\bibcite{b3}{3}
+\bibcite{b4}{4}
+\bibcite{b5}{5}
+\bibcite{b6}{6}
+\bibcite{b7}{7}
+\bibcite{b8}{8}
+\bibcite{b9}{9}
+\bibcite{b10}{10}
+\bibcite{b11}{11}
+\bibcite{b12}{12}
+\bibcite{b13}{13}
+\bibcite{b14}{14}
+\bibcite{b15}{15}
+\bibcite{b16}{16}
+\bibcite{b17}{17}
+\bibcite{b18}{18}
+\bibcite{b19}{19}
+\bibcite{b20}{20}
+\@writefile{toc}{\contentsline {section}{\numberline {VI}Conclusion}{5}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{T\`ai li\d \ecircumflex u}{5}{}\protected@file@percent }
+\gdef \@abspage@last{5}
