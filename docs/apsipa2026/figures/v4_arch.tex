@@ -149,8 +149,8 @@
 
 %% ── Fusion (vertically centred between embeddings) ──
 \node[fblk] at ($(eegemb.east)!0.5!(specemb.east) + (14mm,0)$) (fusion) {%
-    \textcolor{FuseCol}{\textbf{Cross-Attn Fusion}}\\
-    \footnotesize 4-head MHA $+$ gate\\
+    \textcolor{FuseCol}{\textbf{Gate Fusion}}\\
+    \footnotesize learned 128-d gate\\
     \footnotesize $+$ residual MLP%
 };
 

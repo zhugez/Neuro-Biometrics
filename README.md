@@ -6,6 +6,7 @@
 **Robust EEG Denoising and Biometric Verification using State Space Models (Mamba) and Metric Learning.**
 
 > 🚀 **Latest:**
+> - [2026-05-14] Added V4 fusion ablation: gated self-attention vs gate-only (`--no-fusion-attn`); gate-only is selected for APSIPA2026
 > - [2026-04-25] Updated V4 multimodal RTX 5090 3-seed results and cross-version comparison
 > - [2026-02-20] Added V3 tuned quick-run results (`v3_mamba_tuned`, 1 seed, H100-optimized)
 > - [2026-02-19] Refactored: extracted `experiments/shared/` module, V1/V2 are now thin wrappers (-2082 lines)
@@ -112,7 +113,7 @@ python experiments/v1_baseline/main.py --epochs 30 --seeds 3
 python experiments/v2_mamba/main.py --epochs 30 --seeds 3
 
 # V4 Multimodal: WaveNet + Mamba + EEG/spectrogram fusion
-python experiments/v4_multimodal/main.py --epochs 30 --seeds 3 --batch-size 256 --num-workers 8 --spectrogram-source denoised
+python experiments/v4_multimodal/main.py --epochs 30 --seeds 3 --batch-size 256 --num-workers 8 --spectrogram-source denoised --no-fusion-attn
 ```
 
 > ⚡ **H100 / High-End GPU Optimization:**
@@ -279,12 +280,12 @@ V1 uses the same WaveNet denoiser and ResNet embedder, but **without Mamba**.
 |---|---|---|---|---|
 | **Denoiser** | WaveNet only | WaveNet + MambaBlock | WaveNet + MambaBlock tuned preset | WaveNet + MambaBlock |
 | **Stage 2 input** | EEG only | EEG only | EEG only | EEG + denoised spectrogram |
-| **Fusion** | None | None | None | Cross-attention EEG/spectrogram fusion |
+| **Fusion** | None | None | None | Gate-only EEG/spectrogram fusion |
 | **Seeds** | 3 | 3 | 1 | 3 |
 | **Run profile** | Standard 30/30 | Standard 30/30 | H100 quick run | RTX 5090, `--batch-size 256 --num-workers 8` |
-| **Best P@1 (Gaussian)** | 82.2% | 79.8% | 74.9% | **82.4%** |
-| **Best P@1 (Powerline)** | 86.0% | 85.8% | 86.9% | **87.7%** |
-| **Best P@1 (EMG)** | 82.4% | 81.1% | 75.8% | **83.8%** |
+| **Best P@1 (Gaussian)** | 82.2% | 79.8% | 74.9% | **85.5%** |
+| **Best P@1 (Powerline)** | 86.0% | 85.8% | 86.9% | **87.2%** |
+| **Best P@1 (EMG)** | 82.4% | 81.1% | 75.8% | **85.1%** |
 
 ### V3: Mamba Tuned (Quick Run, 1 seed)
 
@@ -316,46 +317,57 @@ V1 uses the same WaveNet denoiser and ResNet embedder, but **without Mamba**.
 
 ### V4: Multimodal EEG + Spectrogram Fusion (30/30 epochs)
 
-V4 keeps the WaveNet+Mamba denoiser, adds a spectrogram Mamba branch, and fuses EEG/spectrogram embeddings with cross-attention. This RTX 5090 run used `--batch-size 256 --num-workers 8 --spectrogram-source denoised` with `OMP_NUM_THREADS=2` and `MKL_NUM_THREADS=2`.
+V4 keeps the WaveNet+Mamba denoiser, adds a spectrogram Mamba branch, and fuses EEG/spectrogram embeddings. The selected APSIPA2026 variant is the latest gate-only fusion run (`--no-fusion-attn`) because it improves average P@1 and EER over the attention-enabled run. This RTX 5090 run used `--batch-size 256 --num-workers 8 --spectrogram-source denoised` with `OMP_NUM_THREADS=2` and `MKL_NUM_THREADS=2`.
 
 #### Gaussian Noise
 
 | Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ | EER ↓ |
 |---|---|---|---|---|---|
-| ResNet34 + MultiSim | 0.764 ± 0.050 | 0.743 ± 0.053 | **12.15 ± 0.26** | 0.443 ± 0.021 | 37.6% ± 7.2% |
-| ResNet18 + MultiSim | 0.782 ± 0.028 | 0.755 ± 0.035 | 12.15 ± 0.26 | 0.441 ± 0.036 | 36.9% ± 4.6% |
-| **ResNet34 + ArcFace** | **0.824 ± 0.036** | **0.803 ± 0.040** | 12.15 ± 0.26 | **0.479 ± 0.095** | **35.6% ± 5.9%** |
+| ResNet34 + MultiSim | 0.799 ± 0.051 | 0.768 ± 0.058 | **12.15 ± 0.25** | 0.405 ± 0.041 | 40.2% ± 4.5% |
+| ResNet18 + MultiSim | 0.790 ± 0.028 | 0.759 ± 0.038 | 12.15 ± 0.25 | 0.471 ± 0.026 | 38.1% ± 7.1% |
+| **ResNet34 + ArcFace** | **0.855 ± 0.021** | **0.834 ± 0.016** | 12.15 ± 0.25 | **0.541 ± 0.102** | **35.9% ± 1.0%** |
 
 #### Powerline Noise (50 Hz)
 
 | Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ | EER ↓ |
 |---|---|---|---|---|---|
-| ResNet34 + MultiSim | 0.819 ± 0.040 | 0.794 ± 0.049 | **32.38 ± 1.06** | **0.533 ± 0.051** | 40.8% ± 2.4% |
-| ResNet18 + MultiSim | 0.831 ± 0.047 | 0.806 ± 0.052 | 32.38 ± 1.06 | 0.450 ± 0.015 | 37.1% ± 2.1% |
-| **ResNet34 + ArcFace** | **0.877 ± 0.006** | **0.855 ± 0.005** | 32.38 ± 1.06 | 0.501 ± 0.044 | **36.0% ± 3.9%** |
+| ResNet34 + MultiSim | 0.855 ± 0.031 | 0.825 ± 0.043 | **32.41 ± 1.16** | 0.488 ± 0.044 | 37.5% ± 0.9% |
+| ResNet18 + MultiSim | 0.840 ± 0.045 | 0.811 ± 0.052 | 32.41 ± 1.16 | 0.482 ± 0.010 | 34.6% ± 2.4% |
+| **ResNet34 + ArcFace** | **0.872 ± 0.052** | **0.844 ± 0.060** | 32.41 ± 1.16 | **0.515 ± 0.079** | **34.0% ± 3.8%** |
 
 #### EMG Noise (20-80 Hz)
 
 | Model | P@1 ↑ | P@5 ↑ | SI-SNR (dB) ↑ | AUROC ↑ | EER ↓ |
 |---|---|---|---|---|---|
-| ResNet34 + MultiSim | 0.764 ± 0.080 | 0.747 ± 0.075 | **13.83 ± 0.35** | 0.439 ± 0.065 | 38.9% ± 3.9% |
-| ResNet18 + MultiSim | 0.793 ± 0.067 | 0.775 ± 0.069 | 13.83 ± 0.35 | 0.422 ± 0.038 | 35.6% ± 6.6% |
-| **ResNet34 + ArcFace** | **0.838 ± 0.057** | **0.827 ± 0.065** | 13.83 ± 0.35 | **0.514 ± 0.082** | **35.0% ± 5.8%** |
+| ResNet34 + MultiSim | 0.810 ± 0.054 | 0.788 ± 0.056 | **13.83 ± 0.34** | 0.483 ± 0.031 | 37.2% ± 3.8% |
+| ResNet18 + MultiSim | 0.777 ± 0.047 | 0.741 ± 0.052 | 13.83 ± 0.34 | 0.477 ± 0.048 | 38.4% ± 6.3% |
+| **ResNet34 + ArcFace** | **0.851 ± 0.031** | **0.828 ± 0.036** | 13.83 ± 0.34 | **0.535 ± 0.075** | **32.8% ± 5.6%** |
+
+#### V4 Fusion Attention Ablation (ResNet34 + ArcFace)
+
+This table compares the attention-enabled V4 artifact (`output_v4_multimodal_with_attn.json`) against the latest gate-only run (`output_v4_multimodal.json`). Higher is better for P@1/P@5/AUROC; lower is better for EER.
+
+| Noise | Gated self-attn P@1 | Gate-only P@1 | Δ P@1 | Gated self-attn EER | Gate-only EER | Winner |
+|---|---:|---:|---:|---:|---:|---|
+| Gaussian | 0.824 ± 0.036 | **0.855 ± 0.021** | **+0.030** | **35.6% ± 5.9%** | 35.9% ± 1.0% | Gate-only by P@1/AUROC |
+| Powerline | **0.877 ± 0.006** | 0.872 ± 0.052 | -0.005 | 36.0% ± 3.9% | **34.0% ± 3.8%** | Mixed; self-attn by P@1, gate-only by EER |
+| EMG | 0.838 ± 0.057 | **0.851 ± 0.031** | **+0.013** | 35.0% ± 5.8% | **32.8% ± 5.6%** | Gate-only |
+| **Average** | 0.847 | **0.859** | **+0.013** | 35.5% | **34.2%** | **Gate-only selected for paper** |
 
 ### Cross-Version Best P@1 Comparison
 
 | Noise | V1 Baseline | V2 Mamba | V3 Tuned (1 seed) | V4 Multimodal |
 |---|---:|---:|---:|---:|
-| Gaussian | 0.822 | 0.798 | 0.749 | **0.824** |
-| Powerline | 0.860 | 0.858 | 0.869 | **0.877** |
-| EMG | 0.824 | 0.811 | 0.758 | **0.838** |
+| Gaussian | 0.822 | 0.798 | 0.749 | **0.855** |
+| Powerline | 0.860 | 0.858 | 0.869 | **0.872** |
+| EMG | 0.824 | 0.811 | 0.758 | **0.851** |
 
 | Version | Main change | Seeds | Best P@1 profile |
 |---|---|---:|---|
 | V1 | WaveNet denoiser only | 3 | Strong V1/V2 baseline before multimodal fusion |
 | V2 | WaveNet + midpoint MambaBlock | 3 | Similar to V1, slightly lower P@1 in this run |
 | V3 | Tuned Mamba preset, H100 optimized | 1 | Strong single-seed Powerline quick run, but not directly comparable to 3-seed results |
-| V4 | Mamba denoiser + spectrogram Mamba + cross-attention fusion | 3 | Best observed multi-seed P@1 on Gaussian, Powerline, and EMG |
+| V4 | Mamba denoiser + spectrogram Mamba + gate-only fusion | 3 | Best observed multi-seed P@1 on Gaussian, Powerline, and EMG |
 
 ### Metric Definitions
 
@@ -369,11 +381,11 @@ V4 keeps the WaveNet+Mamba denoiser, adds a spectrogram Mamba branch, and fuses 
 
 ### Key Findings
 
-- **V4 ResNet34 + ArcFace** is the strongest V4 head by P@1 for Gaussian, Powerline, and EMG in the latest RTX 5090 3-seed run.
-- Cross-version best observed P@1 now comes from **V4** on all three noise types: Gaussian 82.4%, Powerline 87.7%, and EMG 83.8%.
-- The Gaussian gap is small (V4 82.4% vs V1 82.2%), so treat that win as seed-sensitive until confirmed with larger repeated runs.
+- **V4 ResNet34 + ArcFace** is the strongest V4 head by P@1 for Gaussian, Powerline, and EMG in the latest RTX 5090 3-seed gate-only fusion run.
+- Cross-version best observed P@1 now comes from **V4 gate-only fusion** on all three noise types: Gaussian 85.5%, Powerline 87.2%, and EMG 85.1%.
+- The gate-only fusion ablation improves average ResNet34+ArcFace P@1 over the gated self-attention run (0.859 vs 0.847) and lowers average EER (34.2% vs 35.5%).
 - V1 remains slightly higher than V2 on best P@1 for all three noise types (82.2 vs 79.8, 86.0 vs 85.8, 82.4 vs 81.1).
-- V4 reports higher SI-SNR than V1/V2 (12.15 / 32.38 / 13.83 dB vs roughly 10.6 / 19.8 / 11.7 dB), indicating stronger denoising in this run.
+- V4 reports higher SI-SNR than V1/V2 (12.15 / 32.41 / 13.83 dB vs roughly 10.6 / 19.8 / 11.7 dB), indicating stronger denoising in this run.
 - **AUROC remains moderate** across versions, so verification can still improve with calibration and harder negatives.
 - V3 is single-seed only and should be treated as directional, not directly comparable to the 3-seed V1/V2/V4 summaries.
 

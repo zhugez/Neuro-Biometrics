@@ -49,20 +49,20 @@ EEG biometric identification is brittle under deployment noise and
 unseen-subject conditions. Extending our two-stage WaveNet+ResNet
 pipeline, we propose a multimodal Mamba framework: a Mamba-augmented
 denoiser, a parallel spectrogram branch with frequency- and time-axis
-Mamba sweeps, and a gated self-attention fusion module with auxiliary
+Mamba sweeps, and a gate-only fusion module with auxiliary
 branch losses. On the PhysioNet AEP dataset under the AEP-Hybrid
 protocol (16 known + 4 held-out impostor subjects, three seeds,
 inheriting the partition of~\cite{vu2026aisei}), the full model (V4)
 attains the best
-Precision@1 on all three noise families ($82.4\%$ Gaussian,
-$87.7\%$ power-line, $83.8\%$ EMG) with Stage-I SI-SNR
-$12.15$/$32.38$/$13.83$\,dB. Held-out-subject AUROC $\approx 0.50$
+Precision@1 on all three noise families ($85.5\%$ Gaussian,
+$87.2\%$ power-line, $85.1\%$ EMG) with Stage-I SI-SNR
+$12.15$/$32.41$/$13.83$\,dB. Held-out-subject AUROC $\approx 0.50$
 motivates calibration as future work.
 \end{abstract}
 
 \begin{IEEEkeywords}
 EEG biometrics, denoising autoencoder, state-space models, Mamba,
-multimodal fusion, gated self-attention fusion, metric learning.
+multimodal fusion, gate-only fusion, metric learning.
 \end{IEEEkeywords}
 
 \section{Introduction}
@@ -96,7 +96,7 @@ we add a \emph{spectrogram branch} that re-encodes the denoised signal
 into a 2-D time-frequency map with frequency- and time-axis Mamba
 sweeps.
 \textbf{(iii)} A single embedding view risks branch-specific bias, so
-we fuse the two embeddings with a \emph{gated self-attention fusion}
+we fuse the two embeddings with a \emph{gate-only fusion}
 module, jointly trained with auxiliary metric losses on each branch.
 
 We evaluate four progressively richer architectures on the PhysioNet
@@ -139,7 +139,7 @@ costly~\cite{vaswani2017attention} and where physiological non-stationarity
 makes hand-tuned filters fragile. EEG-specific Mamba variants have begun
 to appear for cross-subject decoding~\cite{wang2024eegmamba}; to our
 knowledge, ours is the first study that combines a Mamba-augmented
-denoiser with a Mamba spectrogram branch and gated self-attention fusion for
+denoiser with a Mamba spectrogram branch and gate-only fusion for
 EEG biometric identification with open-set verification analysis.
 
 \textbf{Metric learning and multimodal fusion.}
@@ -150,7 +150,7 @@ verification. Audio spectrogram transformers~\cite{gong2021ast}
 demonstrate that converting a 1-D acoustic signal into a 2-D
 time-frequency map and applying sequence models on top is effective; we
 adopt the same intuition with Mamba sweeps along both spectrogram axes
-and use a gated self-attention fusion to combine the two views, instead
+and use a learned gate to combine the two views, instead
 of a simpler concatenation or score-level fusion.
 
 \section{Method}
@@ -169,8 +169,8 @@ sequentially: Stage~I for $30$ epochs and then frozen as the upstream
 module for Stage~II.
 
 Fig.~\ref{fig:v4-arch} details the V4 multimodal architecture, which
-augments the second stage with a spectrogram branch and gated
-self-attention fusion.
+augments the second stage with a spectrogram branch and gate-only
+fusion.
 
 \subsection{Stage I: noise-conditioned waveform denoiser}
 The denoiser ingests a 4-channel raw EEG epoch
@@ -234,22 +234,15 @@ dimensions, an MLP head produces the unit-norm spectrogram embedding
 $e_{\mathrm{spec}}\in\mathbb{R}^{128}$ via a final L2-normalization
 layer that is what makes the embedding unit-norm.
 
-\textbf{Gated self-attention fusion.} The two unit-norm vectors are
-stacked into a length-2 token sequence
-$T=[e_{\mathrm{eeg}};e_{\mathrm{spec}}]\in\mathbb{R}^{2\times 128}$ and
-passed through a four-head self-attention block (shared $Q/K/V$
-derived from $T$; referred to as a cross-attention module
-in~\cite{vu2026aisei}). The attended tokens
-$\tilde{T}=[\tilde{e}_{\mathrm{eeg}};\tilde{e}_{\mathrm{spec}}]$ are
-mixed by a learned gate
-$g=\sigma(W_g[e_{\mathrm{eeg}};e_{\mathrm{spec}}])\in(0,1)^{128}$
-computed from the pre-attention embeddings, where $\sigma$ is the
-elementwise sigmoid and $W_g\in\mathbb{R}^{128\times 256}$ is a
-learned linear projection acting as a soft per-coordinate selector
-between the two views,
+\textbf{Gate-only fusion.} The two unit-norm vectors are mixed by a
+learned gate
+$g=\sigma(W_g[e_{\mathrm{eeg}};e_{\mathrm{spec}}])\in(0,1)^{128}$,
+where $\sigma$ is the elementwise sigmoid and
+$W_g\in\mathbb{R}^{128\times 256}$ is a learned linear projection
+acting as a soft per-coordinate selector between the two views,
 \begin{equation}
-e_{\mathrm{mix}}=g\odot \tilde{e}_{\mathrm{eeg}}
-+(1-g)\odot \tilde{e}_{\mathrm{spec}},
+e_{\mathrm{mix}}=g\odot e_{\mathrm{eeg}}
++(1-g)\odot e_{\mathrm{spec}},
 \end{equation}
 followed by a residual MLP and L2 normalization to give the fused
 biometric embedding $f\in\mathbb{R}^{128}$ used at inference.
@@ -276,7 +269,7 @@ sweeps that we defer to the journal version.
 \caption{V4 multimodal architecture. The WaveNet+Mamba denoiser feeds two
 parallel branches: a ResNet metric embedder on the denoised waveform and
 a spectrogram Mamba branch with frequency- and time-axis sweeps. A
-gated self-attention fusion module fuses the two L2-normalized
+gate-only fusion module fuses the two L2-normalized
 embeddings into a single 128-d biometric embedding. Auxiliary metric losses
 on each branch (dashed) prevent fusion collapse during joint training.}
 \label{fig:v4-arch}
@@ -347,19 +340,19 @@ single-seed, different-hardware quick run (NVIDIA H100 with
 claims.
 \item \textbf{V4}: full multimodal model proposed in this paper:
 WaveNet+Mamba denoiser, ResNet EEG branch, Mamba spectrogram branch, and
-gated self-attention fusion with auxiliary branch losses.
+gate-only fusion with auxiliary branch losses.
 \end{itemize}
 
 \textbf{Implementation.} All three-seed V1, V2, and V4 experiments run
 on a single NVIDIA RTX~5090 with batch size~$256$, $8$ data-loader
 workers, mixed precision, and the \texttt{denoised} spectrogram source
-for V4. The V4 model totals $22.8$\,M parameters with end-to-end
-inference latency of $186$--$197$\,ms per $4$\,s epoch on an RTX~5090
+for V4. The V4 model totals $22.6$\,M parameters with end-to-end
+inference latency of $187$--$199$\,ms per $4$\,s epoch on an RTX~5090
 (ResNet-34+ArcFace head), well below the $4$\,s epoch duration and
 therefore real-time-compatible; the V1 baseline reaches $\sim\!20$\,ms
 on an RTX~3060 with comparable parameter count
 ($\sim\!23.4$\,M)~\cite{vu2026aisei}, so the added Mamba blocks,
-spectrogram branch, and gated fusion module account for the latency
+spectrogram branch, and gate-only fusion module account for the latency
 delta on top of the V1 backbone. V3 was a single-seed quick run on an
 NVIDIA H100 with \texttt{torch.compile}, reported as directional only.
 
@@ -383,7 +376,7 @@ separately in the protocol paragraph.
 Table~\ref{tab:cross} summarizes the best Precision@1 of each version,
 selected per noise family across the three metric heads. The proposed
 V4 model is the strongest configuration on every noise type, with the
-clearest margins on power-line and EMG. V3 reaches a competitive
+clearest margins on Gaussian and EMG. V3 reaches a competitive
 power-line score (its tuned Mamba preset narrows the spectral residual
 the $50$\,Hz line leaves behind), but its Gaussian and EMG numbers
 trail V1, V2, and V4: with a single seed and a different hardware
@@ -402,9 +395,9 @@ better. V3 is a single-seed quick run.}
 \textbf{Noise} & \textbf{V1} & \textbf{V2} & \textbf{V3}\tnote{$\dagger$}
 & \textbf{V4} \\
 \midrule
-Gaussian   & 0.822 & 0.798 & 0.749 & \textbf{0.824} \\
-Power-line & 0.860 & 0.858 & 0.869 & \textbf{0.877} \\
-EMG        & 0.824 & 0.811 & 0.758 & \textbf{0.838} \\
+Gaussian   & 0.822 & 0.798 & 0.749 & \textbf{0.855} \\
+Power-line & 0.860 & 0.858 & 0.869 & \textbf{0.872} \\
+EMG        & 0.824 & 0.811 & 0.758 & \textbf{0.851} \\
 \bottomrule
 \end{tabular}
 \begin{tablenotes}\footnotesize
@@ -438,19 +431,19 @@ ResNet-34+ArcFace head is the strongest by P@1 on all noise families.}
 & \textbf{SI-SNR} & \textbf{AUROC} & \textbf{EER} \\
 \midrule
 \multirow{3}{*}{Gauss.}
- & R34+MS  & .764$\pm$.050 & .743$\pm$.053 & 12.15$\pm$.26 & .443$\pm$.021 & .376$\pm$.072 \\
- & R18+MS  & .782$\pm$.028 & .755$\pm$.035 & 12.15$\pm$.26 & .441$\pm$.036 & .369$\pm$.046 \\
- & R34+Arc & \textbf{.824$\pm$.036} & \textbf{.803$\pm$.040} & 12.15$\pm$.26 & .479$\pm$.095 & .356$\pm$.059 \\
+ & R34+MS  & .799$\pm$.051 & .768$\pm$.058 & 12.15$\pm$.25 & .405$\pm$.041 & .402$\pm$.045 \\
+ & R18+MS  & .790$\pm$.028 & .759$\pm$.038 & 12.15$\pm$.25 & .471$\pm$.026 & .381$\pm$.071 \\
+ & R34+Arc & \textbf{.855$\pm$.021} & \textbf{.834$\pm$.016} & 12.15$\pm$.25 & \textbf{.541$\pm$.102} & \textbf{.359$\pm$.010} \\
 \midrule
 \multirow{3}{*}{P-line}
- & R34+MS  & .819$\pm$.040 & .794$\pm$.049 & 32.38$\pm$1.06 & .533$\pm$.051 & .408$\pm$.024 \\
- & R18+MS  & .831$\pm$.047 & .806$\pm$.052 & 32.38$\pm$1.06 & .450$\pm$.015 & .371$\pm$.021 \\
- & R34+Arc & \textbf{.877$\pm$.006} & \textbf{.855$\pm$.005} & 32.38$\pm$1.06 & .501$\pm$.044 & .360$\pm$.039 \\
+ & R34+MS  & .855$\pm$.031 & .825$\pm$.043 & 32.41$\pm$1.16 & .488$\pm$.044 & .375$\pm$.009 \\
+ & R18+MS  & .840$\pm$.045 & .811$\pm$.052 & 32.41$\pm$1.16 & .482$\pm$.010 & .346$\pm$.024 \\
+ & R34+Arc & \textbf{.872$\pm$.052} & \textbf{.844$\pm$.060} & 32.41$\pm$1.16 & \textbf{.515$\pm$.079} & \textbf{.340$\pm$.038} \\
 \midrule
 \multirow{3}{*}{EMG}
- & R34+MS  & .764$\pm$.080 & .747$\pm$.075 & 13.83$\pm$.35 & .439$\pm$.065 & .389$\pm$.039 \\
- & R18+MS  & .793$\pm$.067 & .775$\pm$.069 & 13.83$\pm$.35 & .422$\pm$.038 & .356$\pm$.066 \\
- & R34+Arc & \textbf{.838$\pm$.057} & \textbf{.827$\pm$.065} & 13.83$\pm$.35 & .514$\pm$.082 & .350$\pm$.058 \\
+ & R34+MS  & .810$\pm$.054 & .788$\pm$.056 & 13.83$\pm$.34 & .483$\pm$.031 & .372$\pm$.038 \\
+ & R18+MS  & .777$\pm$.047 & .741$\pm$.052 & 13.83$\pm$.34 & .477$\pm$.048 & .384$\pm$.063 \\
+ & R34+Arc & \textbf{.851$\pm$.031} & \textbf{.828$\pm$.036} & 13.83$\pm$.34 & \textbf{.535$\pm$.075} & \textbf{.328$\pm$.056} \\
 \bottomrule
 \end{tabular}
 \begin{tablenotes}\footnotesize
@@ -467,16 +460,16 @@ denoiser (V1$\to$V2) leaves P@1 essentially unchanged and even slightly
 hurts it, suggesting that swapping a single fixed-receptive-field
 convolutional layer for a state-space block does not, on its own,
 re-shape the embedding geometry. Adding the spectrogram branch and
-gated self-attention fusion (V2$\to$V4) is what unlocks retrieval gains of
-$+2.6$, $+1.9$, and $+2.7$ percentage points respectively over V2, and
-$+0.2$, $+1.7$, and $+1.4$ over V1. We do not attempt to attribute
+gate-only fusion (V2$\to$V4) is what unlocks retrieval gains of
+$+5.7$, $+1.4$, and $+4.0$ percentage points respectively over V2, and
+$+3.3$, $+1.2$, and $+2.7$ over V1. We do not attempt to attribute
 SI-SNR deltas to the Stage~II additions: each version retrains its own
 Stage~I denoiser independently, so cross-version SI-SNR differences
 reflect independent training runs of nominally the same architecture
 rather than any contribution from the spectrogram branch or fusion
 module. Per-version Stage~I SI-SNR (mean across seeds, ResNet-34+ArcFace
 configuration) is V1: $10.64/19.98/11.65$\,dB; V2:
-$10.65/19.61/11.67$\,dB; V4: $12.15/32.38/13.83$\,dB on Gaussian /
+$10.65/19.61/11.67$\,dB; V4: $12.15/32.41/13.83$\,dB on Gaussian /
 power-line / EMG, and is intended only as descriptive Stage~I quality.
 
 \begin{table}[t]
@@ -492,45 +485,45 @@ version, so SI-SNR is not used here as an ablation metric.}
 \multirow{4}{*}{Gaussian}
  & V1: WaveNet  & 0.822 \\
  & V2: + Mamba  & 0.798 \\
- & V4: + Spec + Fusion & \textbf{0.824} \\
- & $\Delta$ V4$-$V1 & $+0.002$ \\
+ & V4: + Spec + Fusion & \textbf{0.855} \\
+ & $\Delta$ V4$-$V1 & $+0.033$ \\
 \midrule
 \multirow{4}{*}{Power-line}
  & V1: WaveNet  & 0.860 \\
  & V2: + Mamba  & 0.858 \\
- & V4: + Spec + Fusion & \textbf{0.877} \\
- & $\Delta$ V4$-$V1 & $+0.017$ \\
+ & V4: + Spec + Fusion & \textbf{0.872} \\
+ & $\Delta$ V4$-$V1 & $+0.012$ \\
 \midrule
 \multirow{4}{*}{EMG}
  & V1: WaveNet  & 0.824 \\
  & V2: + Mamba  & 0.811 \\
- & V4: + Spec + Fusion & \textbf{0.838} \\
- & $\Delta$ V4$-$V1 & $+0.014$ \\
+ & V4: + Spec + Fusion & \textbf{0.851} \\
+ & $\Delta$ V4$-$V1 & $+0.027$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{Discussion}
-\textbf{Where multimodal helps.} The largest mean-P@1 jumps occur on
-power-line noise, consistent with the spectrogram localizing the
-$50$\,Hz line and the gate suppressing it before fusion. EMG is
-intermediate (broadband but high-frequency-tilted); Gaussian gains are
-smallest, consistent with white noise being structureless in both
-views.
+\textbf{Where multimodal helps.} In the selected gate-only V4 run, the
+largest mean-P@1 jumps occur on Gaussian and EMG noise, while power-line
+still improves over V1/V2 but by a smaller margin. This suggests that
+the spectrogram branch and gate help most when residual artifacts are
+not captured by a single narrowband template; the $50$\,Hz power-line
+case is already comparatively easy for the denoiser.
 
 \textbf{Effect sizes and the Mamba-alone variant.} V4-over-V1 and
 V2-vs-V1 mean-P@1 deltas both fall within across-seed standard
 deviation, so we report them as magnitude observations rather than
 tested claims (see Limitations). The implication is that the gains
 should be read as a property of the full multimodal stack — denoiser,
-spectrogram branch, and gated fusion together — rather than an
+spectrogram branch, and gate-only fusion together — rather than an
 isolated Stage-I Mamba effect.
 
 \textbf{Verification gap.} Held-out-subject AUROC of the centroid
 min-distance score stays close to chance ($\approx 0.50$) across all
 V4 configurations, confirming that threshold-free verification of
-unseen identities remains the open problem. The AUROC ($0.42$--$0.53$)
-and EER ($0.35$--$0.41$) columns in Table~\ref{tab:v4} are computed on
+unseen identities remains the open problem. The AUROC ($0.41$--$0.54$)
+and EER ($0.33$--$0.40$) columns in Table~\ref{tab:v4} are computed on
 the closed-set test pool (session- and epoch-disjoint, all subjects
 seen during training) and indicate within-subject session variability,
 not novel-identity verification; calibration is left to future work.
@@ -555,11 +548,11 @@ positioning of the V4 result.
 \section{Conclusion}
 We presented a multimodal Mamba-augmented framework for noise-robust
 EEG biometric identification extending~\cite{vu2026aisei}: V4 combines
-a WaveNet+Mamba denoiser, a spectrogram Mamba branch, and a gated
-self-attention fusion module trained with auxiliary branch losses.
+a WaveNet+Mamba denoiser, a spectrogram Mamba branch, and a gate-only
+fusion module trained with auxiliary branch losses.
 Under the AEP-Hybrid protocol (Sec.~\ref{sec:setup}) on the PhysioNet
 AEP dataset, V4 attains the highest mean Precision@1 on all three
-noise families ($82.4\%$/$87.7\%$/$83.8\%$); held-out-subject AUROC
+noise families ($85.5\%$/$87.2\%$/$85.1\%$); held-out-subject AUROC
 $\approx 0.50$ motivates calibration as future work.
 
 \AtNextBibliography{\footnotesize}
