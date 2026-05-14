@@ -16,6 +16,14 @@
 > - [2026-02-20] Updated V1/V2 result tables in README and aligned notes with shared Stage-2 augmentation in code
 > - [2026-02-11] Integrated **Mamba SSM** into WaveNet denoiser (V2)
 
+### Latest V4/V5 Result Snapshot
+
+| Noise | Best V4 P@1 | Best V5 P@1 | Current Best |
+|---|---:|---:|---|
+| Gaussian | **0.855 ± 0.021** | 0.814 ± 0.049 | V4 ResNet34 + ArcFace |
+| Powerline | 0.872 ± 0.052 | **0.881 ± 0.033** | V5 MindID + ArcFace |
+| EMG | **0.851 ± 0.031** | 0.840 ± 0.044 | V4 ResNet34 + ArcFace |
+
 ---
 
 ## 📖 Introduction
