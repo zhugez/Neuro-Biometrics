@@ -18,6 +18,11 @@ import random
 
 from torch.utils.data import DataLoader, TensorDataset
 
+try:
+    torch.multiprocessing.set_sharing_strategy("file_system")
+except (RuntimeError, AttributeError):
+    pass
+
 from .datapreprocessor import Config, EEGDataLoader, EEGPreprocessor, EEGDatasetBuilder, get_logger
 from .model import create_metric_model
 from .trainer import TwoStageTrainer, TRAINING_CONFIG
@@ -33,10 +38,13 @@ MODELS = [
 class EEGPipeline:
     """Multi-seed evaluation pipeline for EEG denoising + metric learning."""
 
-    def __init__(self, config: Config, use_mamba: bool = False):
+    def __init__(self, config: Config, use_mamba: bool = False,
+                 use_denoiser: bool = True):
         self.config = config
         self.config.use_mamba = use_mamba
+        self.config.use_denoiser = use_denoiser
         self.use_mamba = use_mamba
+        self.use_denoiser = use_denoiser
         self.logger = get_logger("eeg.pipeline", config.log_file)
         self.loader = EEGDataLoader(config, self.logger)
         self.preprocessor = EEGPreprocessor(config, self.logger)
@@ -55,7 +63,8 @@ class EEGPipeline:
         print("=" * 60)
         print("EEG Pipeline - Comprehensive Evaluation (Multi-Seed)")
         print(f"Seeds: {n_seeds} | Holdout: {self.config.holdout_subjects}")
-        print(f"Mamba: {'ON' if self.use_mamba else 'OFF'}")
+        print(f"Mamba: {'ON' if self.use_mamba else 'OFF'} | "
+              f"Denoiser: {'ON' if self.use_denoiser else 'OFF'}")
         print("=" * 60)
 
         eeg_data, _ = self.loader.load()
@@ -82,11 +91,13 @@ class EEGPipeline:
                         embed_dim=m.get('embed_dim', self.config.embed_dim),
                         use_mamba=self.use_mamba,
                         embedder_type=m.get('embedder', 'resnet'),
+                        use_denoiser=self.use_denoiser,
                     )
                     if getattr(self.config, "optimize_h100", False):
                         if seed == 0:
                             print("      [Optim] Compiling model with torch.compile for H100...")
-                        model.denoiser = torch.compile(model.denoiser)
+                        if self.use_denoiser:
+                            model.denoiser = torch.compile(model.denoiser)
                         model.embedder = torch.compile(model.embedder)
 
                     trainer = TwoStageTrainer(self.config, self.logger)
@@ -243,12 +254,12 @@ def _make_synthetic(config: Config, n_samples: int = 16):
 
 
 def run_smoke_test(config: Config, use_mamba: bool,
-                   models: List[Dict] = None):
+                   models: List[Dict] = None, use_denoiser: bool = True):
     """Ultra-light smoke test: forward pass for each configured model."""
     print("[SMOKE] Starting minimal smoke test...")
     x_noisy, x_clean, y = _make_synthetic(config, n_samples=8)
 
-    pipeline = EEGPipeline(config, use_mamba=use_mamba)
+    pipeline = EEGPipeline(config, use_mamba=use_mamba, use_denoiser=use_denoiser)
     train_dl, val_dl, test_dl = pipeline._create_split_dataloaders(
         x_noisy, x_clean, y, test_size=0.25, val_size=0.25,
     )
@@ -266,6 +277,7 @@ def run_smoke_test(config: Config, use_mamba: bool,
             pretrained=False,
             use_mamba=use_mamba,
             embedder_type=m.get("embedder", "resnet"),
+            use_denoiser=use_denoiser,
         )
         model.eval()
         with torch.no_grad():
@@ -341,8 +353,15 @@ def run_mini_train(config: Config, use_mamba: bool):
 # CLI entry point
 # ---------------------------------------------------------------------------
 def run_cli(use_mamba: bool, version: str, default_seeds: int = 3,
-            models: List[Dict] = None):
-    """Shared CLI entry point for both V1 and V2 experiments."""
+            models: List[Dict] = None, use_denoiser: bool = True):
+    """Shared CLI entry point for V1/V2/V3/V4/V5 experiments.
+
+    Set ``use_denoiser=False`` to bypass the WaveNet Stage-I denoiser — the
+    embedder then sees the raw noisy signal directly. This is the
+    configuration used for the V5 pure prior-work baselines so the
+    cross-architecture comparison is not contaminated by our Stage-I
+    contribution.
+    """
     parser = argparse.ArgumentParser(
         description=f"Neuro-Biometrics {version} pipeline"
     )
@@ -392,14 +411,16 @@ def run_cli(use_mamba: bool, version: str, default_seeds: int = 3,
         config.aug_warmup_epochs = 3
         print("[Preset] V3 tuned preset enabled")
     print(f"Device: {config.device}")
-    print(f"Mamba: {'ON' if use_mamba else 'OFF'} | Batch Size: {config.batch_size} | Workers: {config.num_workers}")
+    print(f"Mamba: {'ON' if use_mamba else 'OFF'} | "
+          f"Denoiser: {'ON' if use_denoiser else 'OFF'} | "
+          f"Batch Size: {config.batch_size} | Workers: {config.num_workers}")
 
     if args.smoke:
-        run_smoke_test(config, use_mamba, models=models)
+        run_smoke_test(config, use_mamba, models=models, use_denoiser=use_denoiser)
     elif args.mini_train:
         run_mini_train(config, use_mamba)
     elif args.one_sample:
         run_one_sample(config, use_mamba)
     else:
-        pipeline = EEGPipeline(config, use_mamba=use_mamba)
+        pipeline = EEGPipeline(config, use_mamba=use_mamba, use_denoiser=use_denoiser)
         pipeline.run_evaluation_suite(n_seeds=args.seeds, models=models)

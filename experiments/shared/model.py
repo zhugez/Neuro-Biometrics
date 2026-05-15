@@ -176,7 +176,8 @@ class EEGMetricModel(nn.Module):
 def create_metric_model(backbone: str = "resnet18", n_channels: int = 4,
                         embed_dim: int = 128, pretrained: bool = True,
                         use_mamba: bool = False,
-                        embedder_type: str = "resnet") -> EEGMetricModel:
+                        embedder_type: str = "resnet",
+                        use_denoiser: bool = True) -> EEGMetricModel:
     """Factory function to create the full two-stage model.
 
     ``embedder_type`` selects which encoder follows the denoiser:
@@ -188,8 +189,18 @@ def create_metric_model(backbone: str = "resnet18", n_channels: int = 4,
     The MindID and BrainNet embedders are re-implementations of prior-work
     architectures for the cross-protocol comparison; they ignore the
     ``backbone`` and ``pretrained`` arguments.
+
+    ``use_denoiser`` controls whether Stage I is active:
+
+    * ``True`` (default) — WaveNet denoiser is built and trained on SI-SNR.
+    * ``False`` — denoiser is replaced by ``nn.Identity()`` so the embedder
+      receives the raw noisy signal directly. Used for pure prior-work
+      baselines that must not benefit from our Stage-I contribution.
     """
-    denoiser = WaveNetDenoiser(channels=n_channels, use_mamba=use_mamba)
+    if use_denoiser:
+        denoiser = WaveNetDenoiser(channels=n_channels, use_mamba=use_mamba)
+    else:
+        denoiser = nn.Identity()
     if embedder_type == "resnet":
         embedder = ResNetMetricEmbedder(
             backbone=backbone, in_chans=n_channels,

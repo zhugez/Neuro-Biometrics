@@ -166,9 +166,13 @@ class TwoStageTrainer:
     def train(self, model, train_dl, val_dl, num_classes,
               loss_type="arcface", noise_type="", model_name="", seed=0) -> CaseMetrics:
         metrics = CaseMetrics(noise_type=noise_type, model_name=model_name)
-        print(f"  [Stage 1] Training Denoiser (SI-SNR)...")
-        self._train_stage1(model.denoiser, train_dl, val_dl, metrics)
-        print(f"  [Stage 2] Training Embedder (Denoiser Frozen)...")
+        has_trainable_denoiser = any(p.requires_grad for p in model.denoiser.parameters())
+        if has_trainable_denoiser:
+            print(f"  [Stage 1] Training Denoiser (SI-SNR)...")
+            self._train_stage1(model.denoiser, train_dl, val_dl, metrics)
+        else:
+            print(f"  [Stage 1] Skipped — no denoiser (raw signal pass-through).")
+        print(f"  [Stage 2] Training Embedder...")
         self._train_stage2(model, train_dl, val_dl, num_classes, loss_type, metrics, seed=seed)
         return metrics
 
@@ -335,7 +339,12 @@ class TwoStageTrainer:
         if best_state:
             model.load_state_dict(best_state)
             os.makedirs("weights", exist_ok=True)
-            version_tag = "v2" if getattr(self.config, "use_mamba", False) else "v1"
+            if not getattr(self.config, "use_denoiser", True):
+                version_tag = "v5"
+            elif getattr(self.config, "use_mamba", False):
+                version_tag = "v2"
+            else:
+                version_tag = "v1"
             weight_path = f"weights/best_{version_tag}_{metrics.noise_type}_{metrics.model_name}_seed{seed}.pth"
             checkpoint = {
                 "model_state_dict": best_state,
@@ -437,16 +446,21 @@ class TwoStageTrainer:
     def compute_centroids(self, model, train_dl, num_classes) -> torch.Tensor:
         model.to(self.device).eval()
         emb_by_class = {c: [] for c in range(num_classes)}
+        emb_dim = None
         for noisy, _, y in train_dl:
             _, emb = model(noisy.to(self.device))
+            if emb_dim is None:
+                emb_dim = emb.shape[-1]
             for e, c in zip(emb.cpu(), y):
                 emb_by_class[c.item()].append(e)
+        if emb_dim is None:
+            emb_dim = self.config.embed_dim
         centroids = []
         for c in range(num_classes):
             if emb_by_class[c]:
                 centroids.append(torch.stack(emb_by_class[c]).mean(0))
             else:
-                centroids.append(torch.zeros(self.config.embed_dim))
+                centroids.append(torch.zeros(emb_dim))
         return torch.stack(centroids)
 
     @torch.no_grad()
