@@ -36,6 +36,7 @@ from shared.datapreprocessor import EEGDataLoader, EEGPreprocessor, EEGDatasetBu
 from shared.model_multimodal import create_multimodal_model
 from shared.trainer_bimodal import BimodalTrainer, BIMODAL_TRAINING_CONFIG
 from shared.dataset_spectrogram import patch_builder_with_spectrogram
+from shared.pipeline import EEGPipeline, _bootstrap_ci95
 
 NOISE_TYPES = ["gaussian", "powerline", "emg"]
 MODELS = [
@@ -153,14 +154,129 @@ class MultimodalEEGPipeline:
         self._print_summary(final_results)
         return final_results
 
+    def run_evaluation_suite_openset(self, n_seeds: int = 3) -> Dict:
+        """16:4 open-set protocol for the bimodal pipeline.
+
+        Trains on all 16 known subjects (window-level temporal val split),
+        calibrates the threshold on the train windows, and evaluates open-set
+        rejection of the 4 holdout subjects. Leaves ``run_evaluation_suite``
+        (subject-disjoint) untouched.
+        """
+        print("=" * 60)
+        print("V4 Multimodal - 16:4 OPEN-SET Evaluation (all 16 known in train)")
+        print(f"Seeds: {n_seeds} | Holdout: {self.config.holdout_subjects} "
+              f"| Val frac: {getattr(self.config, 'openset_val_frac', 0.15)}")
+        print("=" * 60)
+
+        eeg_data, _ = self.loader.load()
+        processed = self.preprocessor.preprocess(eeg_data)
+        clean_df = self.preprocessor.to_numpy(processed)
+
+        final_results = []
+        denoiser_cache = {}
+        for noise in NOISE_TYPES:
+            print(f"\n>>> Noise Type: {noise.upper()}")
+            for m in MODELS:
+                print(f"\n  [Model: {m['name']}]")
+                seed_metrics = []
+                for seed in range(n_seeds):
+                    print(f"    - Seed {seed+1}/{n_seeds}...", end="\r")
+                    self.set_seed(seed)
+
+                    (X_n, X_c, y, X_spec, n_cls), \
+                    (X_n_unk, X_c_unk, y_unk, X_spec_unk) = \
+                        self.builder.build_dataset_with_novelty_bimodal(
+                            clean_df, noise,
+                            n_fft=getattr(self.config, 'spectrogram_n_fft', 128),
+                            hop_length=getattr(self.config, 'spectrogram_hop_length', 64),
+                        )
+
+                    self.set_seed(seed)  # reproducible split after RNG-consuming builder
+                    train_dl, val_dl = self._create_openset_loaders_bimodal(
+                        X_n, X_c, y, X_spec)
+
+                    self.config.eval_protocol = "openset_16_4"
+
+                    model = create_multimodal_model(
+                        backbone=m['backbone'],
+                        n_channels=self.config.n_channels,
+                        embed_dim=self.config.embed_dim,
+                        use_mamba=self.use_mamba,
+                        spec_embed_dim=getattr(self.config, 'spec_embed_dim', None),
+                        fusion_num_heads=getattr(self.config, 'fusion_num_heads', 4),
+                        fusion_use_attn=getattr(self.config, 'fusion_use_attn', True),
+                    )
+                    cache_key = (noise, seed)
+                    cached_denoiser = denoiser_cache.get(cache_key)
+                    if cached_denoiser is not None:
+                        model.denoiser.load_state_dict(cached_denoiser)
+
+                    if getattr(self.config, "optimize_h100", False):
+                        if seed == 0:
+                            print("      [Optim] Compiling model with torch.compile for H100...")
+                        model.denoiser = torch.compile(model.denoiser)
+                        model.embedder = torch.compile(model.embedder)
+                        model.spec_embedder = torch.compile(model.spec_embedder)
+                        model.fusion = torch.compile(model.fusion)
+
+                    trainer = BimodalTrainer(self.config, self.logger)
+                    trainer.train(
+                        model, train_dl, val_dl, n_cls,
+                        loss_type=m['loss'], noise_type=noise, model_name=m['name'],
+                        seed=seed, train_stage1=cached_denoiser is None,
+                    )
+                    if cached_denoiser is None:
+                        denoiser_module = getattr(model.denoiser, "_orig_mod", model.denoiser)
+                        denoiser_cache[cache_key] = {
+                            k: v.detach().cpu().clone()
+                            for k, v in denoiser_module.state_dict().items()
+                        }
+
+                    centroids = trainer.compute_centroids_bimodal(model, train_dl, n_cls)
+                    norms = [float(torch.norm(centroids[c])) for c in range(n_cls)]
+                    assert all(nrm > 1e-3 for nrm in norms), (
+                        f"Zero-vector centroid detected (norms={norms}); not all "
+                        f"{n_cls} enrolled subjects were covered by train_dl."
+                    )
+
+                    # Threshold on TRAIN windows (decouples TAR from its measurement set).
+                    threshold = self._compute_threshold_bimodal(
+                        trainer, model, train_dl, centroids)
+                    test_res = trainer.evaluate_bimodal(model, val_dl, train_dl, n_cls)
+                    novelty_res = self._evaluate_novelty_bimodal(
+                        trainer, model, val_dl, X_n_unk, X_spec_unk, centroids, threshold,
+                    )
+
+                    seed_metrics.append({"seed": seed, "test": test_res,
+                                         "novelty": novelty_res})
+                    print(f"    - Seed {seed+1}/{n_seeds} Done. "
+                          f"AUROC: {novelty_res['auroc']:.4f} | "
+                          f"OpenSetEER: {novelty_res['open_set_eer']:.4f}")
+
+                aggregated = self._aggregate_results(seed_metrics, noise, m['name'])
+                final_results.append(aggregated)
+
+        self._save_results_openset(final_results)
+        self._print_summary(final_results)
+        return final_results
+
     def _aggregate_results(self, runs: List[Dict], noise_type: str,
                           model_name: str) -> Dict:
         """Compute mean ± std for all metrics across seeds."""
+        protocol = getattr(self.config, "eval_protocol", "standard")
         keys_test = ["p@1", "p@5", "si_snr", "accuracy", "auroc", "eer", "latency", "params"]
-        keys_nov = ["tar", "trr", "far", "frr", "auroc", "aupr"]
+        if protocol == "openset_16_4":
+            keys_nov = ["tar", "trr", "far", "frr", "auroc", "aupr",
+                        "open_set_eer", "aupr_random_baseline"]
+        else:
+            keys_nov = ["tar", "trr", "far", "frr", "auroc", "aupr"]
 
         stats = {}
         def _ci95(vals):
+            # Open-set runs use a percentile bootstrap so CI bounds for bounded
+            # metrics never escape [0,1] (Student's t with df<=2 can).
+            if protocol == "openset_16_4":
+                return _bootstrap_ci95(vals)
             vals = np.asarray(vals, dtype=float)
             mean = float(np.mean(vals))
             if len(vals) <= 1:
@@ -183,7 +299,7 @@ class MultimodalEEGPipeline:
                 stats[f"{k}_ci95"] = ci
 
         for k in keys_nov:
-            vals = [r['novelty'][k] for r in runs]
+            vals = [r['novelty'].get(k, 0.0) for r in runs]
             stats[k] = f"{np.mean(vals):.8f} ± {np.std(vals):.8f}"
             stats[f"{k}_mean"] = float(np.mean(vals))
             stats[f"{k}_std"] = float(np.std(vals))
@@ -268,6 +384,61 @@ class MultimodalEEGPipeline:
                        batch_size=self.config.batch_size, shuffle=False, **loader_kwargs),
         )
 
+    def _create_openset_loaders_bimodal(self, X_n, X_c, y, X_spec, val_frac=None):
+        """16:4 open-set window-level temporal split (bimodal: +spectrograms).
+
+        Reuses the shared per-subject temporal index logic and additionally
+        slices ``X_spec``; both loaders yield 4-tuples (noisy, clean, label,
+        spectrogram) to satisfy the bimodal unpack contract.
+        """
+        if val_frac is None:
+            val_frac = getattr(self.config, "openset_val_frac", 0.15)
+        train_idx, val_idx = EEGPipeline._openset_indices(y, val_frac)
+
+        Xn_tr, Xc_tr, y_tr, Xs_tr = X_n[train_idx], X_c[train_idx], y[train_idx], X_spec[train_idx]
+        Xn_v, Xc_v, y_v, Xs_v = X_n[val_idx], X_c[val_idx], y[val_idx], X_spec[val_idx]
+
+        use_cuda = self.config.device == "cuda"
+        num_workers = getattr(self.config, "num_workers", 2) if use_cuda else 0
+        loader_kwargs = {"pin_memory": use_cuda, "num_workers": num_workers}
+        if num_workers > 0:
+            loader_kwargs["persistent_workers"] = True
+            loader_kwargs["prefetch_factor"] = 4
+
+        train_sampler = None
+        train_shuffle = True
+        if (HAS_MPER_SAMPLER and getattr(self.config, "use_m_per_class_sampler", True)
+                and len(y_tr) >= self.config.batch_size):
+            labels_np = y_tr.cpu().numpy()
+            unique, counts = np.unique(labels_np, return_counts=True)
+            if len(unique) > 1 and counts.min() >= 2:
+                requested_m = int(getattr(self.config, "m_per_class", 4))
+                min_m_for_batch = int(np.ceil(self.config.batch_size / len(unique)))
+                min_m = max(2, requested_m, min_m_for_batch)
+                valid_m = [m for m in range(min_m, self.config.batch_size + 1)
+                           if self.config.batch_size % m == 0]
+                m_per_class = valid_m[0] if valid_m else self.config.batch_size
+                train_sampler = MPerClassSampler(
+                    labels_np, m=m_per_class, batch_size=self.config.batch_size,
+                    length_before_new_iter=len(y_tr))
+                train_shuffle = False
+                print(f"    [Sampler] MPerClassSampler m={m_per_class}")
+
+        print(f"    [OpenSet Split] Train windows={len(train_idx)} | "
+              f"Val windows={len(val_idx)} | subjects={len(torch.unique(y))}")
+
+        train_dl = DataLoader(
+            TensorDataset(Xn_tr, Xc_tr, y_tr, Xs_tr),
+            batch_size=self.config.batch_size, shuffle=train_shuffle,
+            sampler=train_sampler, **loader_kwargs)
+        val_dl = DataLoader(
+            TensorDataset(Xn_v, Xc_v, y_v, Xs_v),
+            batch_size=self.config.batch_size, shuffle=False, **loader_kwargs)
+        # Bimodal arity guard: each batch must unpack as (noisy, clean, label, spec).
+        assert len(val_dl.dataset.tensors) == 4, \
+            "bimodal val_dl must yield 4-tuples (noisy, clean, label, spec)"
+        return train_dl, val_dl
+
     def _compute_threshold_bimodal(self, trainer, model, val_dl, centroids):
         """Compute distance threshold for novelty detection (bimodal)."""
         model.to(self.config.device).eval()
@@ -314,9 +485,27 @@ class MultimodalEEGPipeline:
         tar = sum(d < threshold for d in known_dists) / known_total if known_total else 0
         trr = sum(d >= threshold for d in unknown_dists) / unknown_total if unknown_total else 0
 
+        # Open-set EER (error rate at FAR==FRR crossing) and AUPR random baseline.
+        kd = np.asarray(known_dists, dtype=float)
+        ud = np.asarray(unknown_dists, dtype=float)
+        open_set_eer = 0.5
+        if known_total and unknown_total:
+            all_d = np.concatenate([kd, ud])
+            ts = np.linspace(all_d.min(), all_d.max(), 1000)
+            fars = np.array([(ud < t).mean() for t in ts])
+            frrs = np.array([(kd >= t).mean() for t in ts])
+            idx = int(np.argmin(np.abs(fars - frrs)))
+            open_set_eer = float((fars[idx] + frrs[idx]) / 2.0)
+        aupr_random_baseline = (
+            unknown_total / (known_total + unknown_total)
+            if (known_total + unknown_total) else 0.0
+        )
+
         return {
             "tar": tar, "trr": trr, "far": 1 - trr, "frr": 1 - tar,
             "auroc": auroc, "aupr": aupr, "threshold": threshold,
+            "open_set_eer": open_set_eer,
+            "aupr_random_baseline": aupr_random_baseline,
             "known_samples": known_total, "unknown_samples": unknown_total,
         }
 
@@ -342,6 +531,32 @@ class MultimodalEEGPipeline:
                 "m_per_class": getattr(self.config, "m_per_class", 4),
                 "aux_eeg_loss_weight": getattr(self.config, "aux_eeg_loss_weight", 0.3),
                 "aux_spec_loss_weight": getattr(self.config, "aux_spec_loss_weight", 0.2),
+            },
+            "results": results,
+        }
+        with open(output_file, 'w') as f:
+            json.dump(output, f, indent=2)
+        print(f"\nSaved to: {output_file}")
+
+    def _save_results_openset(self, results: List[Dict]):
+        output_file = getattr(self.config, "output_file", self.config.log_file)
+        output = {
+            "experiment": "V6: 16:4 Open-Set Evaluation - V4 bimodal (all 16 known in train)",
+            "split_mode": "openset_16_4",
+            "split_protocol": (
+                "train=all_16_known_temporal_85pct,"
+                "val=window_level_15pct_temporal,test=4_holdout"
+            ),
+            "use_mamba": self.use_mamba,
+            "config": {
+                "epochs_stage1": getattr(self.config, "stage1_epochs", BIMODAL_TRAINING_CONFIG["stage1_epochs"]),
+                "epochs_stage2": self.config.epochs,
+                "batch_size": self.config.batch_size,
+                "holdout_subjects": self.config.holdout_subjects,
+                "openset_val_frac": getattr(self.config, "openset_val_frac", 0.15),
+                "num_workers": getattr(self.config, "num_workers", 2),
+                "spectrogram_source": getattr(self.config, "spectrogram_source", "noisy"),
+                "early_stop_metric": getattr(self.config, "early_stop_metric", "p1"),
             },
             "results": results,
         }

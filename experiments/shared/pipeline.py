@@ -35,6 +35,26 @@ MODELS = [
 ]
 
 
+def _bootstrap_ci95(vals, n_boot: int = 1000):
+    """Deterministic percentile bootstrap 95% CI over seed means.
+
+    Unlike Student's t with df<=2 (which can yield bounds outside [0,1] for
+    bounded metrics), the percentile bootstrap is confined to the empirical
+    range of the resampled means, so CI bounds stay within a metric's domain.
+    Returns ``None`` when there are too few samples to form an interval.
+    """
+    vals = np.asarray(vals, dtype=float)
+    if len(vals) <= 1:
+        return None
+    if np.isclose(np.std(vals), 0.0):
+        m = float(np.mean(vals))
+        return (m, m)
+    rng = np.random.default_rng(12345)
+    idx = rng.integers(0, len(vals), size=(n_boot, len(vals)))
+    means = vals[idx].mean(axis=1)
+    return (float(np.percentile(means, 2.5)), float(np.percentile(means, 97.5)))
+
+
 class EEGPipeline:
     """Multi-seed evaluation pipeline for EEG denoising + metric learning."""
 
@@ -126,36 +146,140 @@ class EEGPipeline:
         self._print_summary(final_results)
         return final_results
 
+    def run_evaluation_suite_openset(self, n_seeds: int = 3,
+                                     models: List[Dict] = None) -> Dict:
+        """16:4 open-set protocol.
+
+        Trains on ALL 16 enrolled subjects (window-level temporal val split),
+        calibrates the rejection threshold on the train windows, and evaluates
+        open-set rejection of the 4 holdout subjects. Leaves the legacy
+        ``run_evaluation_suite`` (subject-disjoint 10/3/3) untouched.
+        """
+        models = models if models is not None else MODELS
+        print("=" * 60)
+        print("EEG Pipeline - 16:4 OPEN-SET Evaluation (all 16 known in train)")
+        print(f"Seeds: {n_seeds} | Holdout: {self.config.holdout_subjects} "
+              f"| Val frac: {getattr(self.config, 'openset_val_frac', 0.15)}")
+        print(f"Mamba: {'ON' if self.use_mamba else 'OFF'} | "
+              f"Denoiser: {'ON' if self.use_denoiser else 'OFF'}")
+        print("=" * 60)
+
+        eeg_data, _ = self.loader.load()
+        processed = self.preprocessor.preprocess(eeg_data)
+        clean_df = self.preprocessor.to_numpy(processed)
+
+        final_results = []
+        for noise in NOISE_TYPES:
+            print(f"\n>>> Noise Type: {noise.upper()}")
+            for m in models:
+                print(f"\n  [Model: {m['name']}]")
+                seed_metrics = []
+                for seed in range(n_seeds):
+                    print(f"    - Seed {seed+1}/{n_seeds}...", end="\r")
+                    self.set_seed(seed)
+
+                    (X_n, X_c, y, n_cls), (X_n_unk, X_c_unk, y_unk) = \
+                        self.builder.build_dataset_with_novelty(clean_df, noise)
+
+                    # Reset RNG after the RNG-consuming builder so the per-subject
+                    # split is reproducible for a fixed seed.
+                    self.set_seed(seed)
+                    train_dl, val_dl = self._create_openset_loaders(X_n, X_c, y)
+
+                    # Activate the open-set protocol BEFORE training so the
+                    # trainer uses val-loss early stopping and the openset
+                    # checkpoint-name suffix.
+                    self.config.eval_protocol = "openset_16_4"
+                    self.config.early_stop_metric = "val_loss"
+
+                    model = create_metric_model(
+                        backbone=m.get('backbone', 'resnet18'),
+                        n_channels=self.config.n_channels,
+                        embed_dim=m.get('embed_dim', self.config.embed_dim),
+                        use_mamba=self.use_mamba,
+                        embedder_type=m.get('embedder', 'resnet'),
+                        use_denoiser=self.use_denoiser,
+                    )
+                    if getattr(self.config, "optimize_h100", False):
+                        if seed == 0:
+                            print("      [Optim] Compiling model with torch.compile for H100...")
+                        if self.use_denoiser:
+                            model.denoiser = torch.compile(model.denoiser)
+                        model.embedder = torch.compile(model.embedder)
+
+                    trainer = TwoStageTrainer(self.config, self.logger)
+                    trainer.train(
+                        model, train_dl, val_dl, n_cls,
+                        loss_type=m['loss'], noise_type=noise, model_name=m['name'],
+                        seed=seed,
+                    )
+
+                    centroids = trainer.compute_centroids(model, train_dl, n_cls)
+                    norms = [float(torch.norm(centroids[c])) for c in range(n_cls)]
+                    assert all(nrm > 1e-3 for nrm in norms), (
+                        f"Zero-vector centroid detected (norms={norms}); not all "
+                        f"{n_cls} enrolled subjects were covered by train_dl."
+                    )
+
+                    # Calibrate the threshold on TRAIN windows (not val) so TAR,
+                    # measured on val, is not a tautological ~0.95 constant.
+                    threshold = trainer.compute_threshold(
+                        model, train_dl, centroids, percentile=95)
+
+                    novelty_res = trainer.evaluate_novelty_comprehensive(
+                        model, known_dl=val_dl, unknown_noisy=X_n_unk,
+                        centroids=centroids, threshold=threshold, y_unk_arr=y_unk,
+                    )
+                    test_res = trainer.evaluate_comprehensive(
+                        model, val_dl, train_dl, n_cls)
+
+                    seed_metrics.append({"seed": seed, "test": test_res,
+                                         "novelty": novelty_res})
+                    print(f"    - Seed {seed+1}/{n_seeds} Done. "
+                          f"AUROC: {novelty_res['auroc']:.4f} | "
+                          f"OpenSetEER: {novelty_res['open_set_eer']:.4f}")
+
+                aggregated = self._aggregate_results(seed_metrics, noise, m['name'])
+                final_results.append(aggregated)
+
+        self._save_results_openset(final_results)
+        self._print_summary(final_results)
+        return final_results
+
     def _aggregate_results(self, runs: List[Dict], noise_type: str,
                            model_name: str) -> Dict:
         """Compute mean ± std for all metrics across seeds."""
-        keys_test = ["p@1", "p@5", "si_snr", "accuracy", "eer", "latency", "params"]
-        keys_nov = ["tar", "trr", "far", "frr", "auroc", "aupr"]
+        protocol = getattr(self.config, "eval_protocol", "standard")
+        if protocol == "openset_16_4":
+            # Open-set: report closed_set_eer (not the bare `eer`) plus the
+            # open-set-specific novelty metrics.
+            keys_test = ["p@1", "p@5", "si_snr", "accuracy",
+                         "closed_set_eer", "latency", "params"]
+            keys_nov = ["tar", "trr", "far", "frr", "auroc", "aupr",
+                        "open_set_eer", "aupr_random_baseline",
+                        "tar_at_far_0_01", "tar_at_far_0_001"]
+        else:
+            keys_test = ["p@1", "p@5", "si_snr", "accuracy", "eer", "latency", "params"]
+            keys_nov = ["tar", "trr", "far", "frr", "auroc", "aupr"]
 
         stats = {}
         for k in keys_test:
-            vals = [r['test'][k] for r in runs]
+            vals = [r['test'].get(k, 0.0) for r in runs]
             stats[k] = f"{np.mean(vals):.8f} ± {np.std(vals):.8f}"
             stats[f"{k}_mean"] = float(np.mean(vals))
             stats[f"{k}_std"] = float(np.std(vals))
-            if len(vals) > 1:
-                ci = _scipy_stats.t.interval(
-                    0.95, df=len(vals) - 1,
-                    loc=np.mean(vals), scale=_scipy_stats.sem(vals)
-                )
-                stats[f"{k}_ci95"] = (float(ci[0]), float(ci[1]))
+            ci = _bootstrap_ci95(vals)
+            if ci is not None:
+                stats[f"{k}_ci95"] = ci
 
         for k in keys_nov:
-            vals = [r['novelty'][k] for r in runs]
+            vals = [r['novelty'].get(k, 0.0) for r in runs]
             stats[k] = f"{np.mean(vals):.8f} ± {np.std(vals):.8f}"
             stats[f"{k}_mean"] = float(np.mean(vals))
             stats[f"{k}_std"] = float(np.std(vals))
-            if len(vals) > 1:
-                ci = _scipy_stats.t.interval(
-                    0.95, df=len(vals) - 1,
-                    loc=np.mean(vals), scale=_scipy_stats.sem(vals)
-                )
-                stats[f"{k}_ci95"] = (float(ci[0]), float(ci[1]))
+            ci = _bootstrap_ci95(vals)
+            if ci is not None:
+                stats[f"{k}_ci95"] = ci
 
         best_run = max(runs, key=lambda x: x['test']['p@1'])
         return {
@@ -209,6 +333,55 @@ class EEGPipeline:
                        batch_size=self.config.batch_size, shuffle=False, **loader_kwargs),
         )
 
+    @staticmethod
+    def _openset_indices(y, val_frac, n_gap: int = 1):
+        """Per-subject temporal window split → (train_idx, val_idx) LongTensors.
+
+        The last ``int(n * val_frac)`` windows of each subject (the most recent
+        in time, given sequential sliding-window generation) form the val split.
+        The ``n_gap`` window(s) immediately before the val boundary are dropped
+        from train to eliminate the 50%-overlap raw-sample sharing across the
+        cut (step_size=400, window_size=800). All subjects appear in both splits.
+        """
+        y_np = y.numpy() if hasattr(y, "numpy") else np.asarray(y)
+        train_idx, val_idx = [], []
+        for label in np.unique(y_np):
+            idx = np.where(y_np == label)[0]  # ascending == temporal order
+            n = len(idx)
+            if n > n_gap + 1:
+                n_val = max(1, min(int(n * val_frac), n - n_gap - 1))
+            else:
+                n_val = 0
+            cut = n - n_val
+            train_idx.extend(idx[: max(0, cut - n_gap)].tolist())
+            val_idx.extend(idx[cut:].tolist())
+        return (torch.as_tensor(train_idx, dtype=torch.long),
+                torch.as_tensor(val_idx, dtype=torch.long))
+
+    def _create_openset_loaders(self, X_n, X_c, y, val_frac=None):
+        """Window-level temporal split that keeps ALL 16 known subjects in both
+        the train and val loaders (no subject is withheld)."""
+        if val_frac is None:
+            val_frac = getattr(self.config, "openset_val_frac", 0.15)
+        train_idx, val_idx = self._openset_indices(y, val_frac)
+
+        use_cuda = self.config.device == "cuda"
+        num_workers = getattr(self.config, "num_workers", 2) if use_cuda else 0
+        loader_kwargs = {"pin_memory": use_cuda, "num_workers": num_workers}
+        if num_workers > 0:
+            loader_kwargs["persistent_workers"] = True
+            loader_kwargs["prefetch_factor"] = 4
+
+        print(f"    [OpenSet Split] Train windows={len(train_idx)} | "
+              f"Val windows={len(val_idx)} | subjects={len(torch.unique(y))}")
+
+        return (
+            DataLoader(TensorDataset(X_n[train_idx], X_c[train_idx], y[train_idx]),
+                       batch_size=self.config.batch_size, shuffle=True, **loader_kwargs),
+            DataLoader(TensorDataset(X_n[val_idx], X_c[val_idx], y[val_idx]),
+                       batch_size=self.config.batch_size, shuffle=False, **loader_kwargs),
+        )
+
     def _save_results(self, results: List[Dict]):
         output = {
             "experiment": "Multi-Seed Comprehensive Evaluation",
@@ -218,6 +391,30 @@ class EEGPipeline:
                 "epochs_stage2": self.config.epochs,
                 "batch_size": self.config.batch_size,
                 "holdout_subjects": self.config.holdout_subjects,
+                "num_workers": getattr(self.config, "num_workers", 2),
+            },
+            "results": results,
+        }
+        with open(self.config.log_file, 'w') as f:
+            json.dump(output, f, indent=2)
+        print(f"\n✓ Saved to: {self.config.log_file}")
+
+    def _save_results_openset(self, results: List[Dict]):
+        output = {
+            "experiment": "V6: 16:4 Open-Set Evaluation (all 16 known in train)",
+            "split_mode": "openset_16_4",
+            "split_protocol": (
+                "train=all_16_known_temporal_85pct,"
+                "val=window_level_15pct_temporal,test=4_holdout"
+            ),
+            "use_mamba": self.use_mamba,
+            "config": {
+                "epochs_stage1": TRAINING_CONFIG["stage1_epochs"],
+                "epochs_stage2": self.config.epochs,
+                "batch_size": self.config.batch_size,
+                "holdout_subjects": self.config.holdout_subjects,
+                "openset_val_frac": getattr(self.config, "openset_val_frac", 0.15),
+                "early_stop_metric": getattr(self.config, "early_stop_metric", "p1"),
                 "num_workers": getattr(self.config, "num_workers", 2),
             },
             "results": results,
@@ -236,9 +433,10 @@ class EEGPipeline:
         print("-" * 140)
         for res in results:
             s = res['stats']
+            eer_str = s.get('closed_set_eer', s.get('eer', 'N/A'))
             print(f"{res['noise_type']:<12} | {res['model_name']:<20} | "
                   f"{s['p@1']:<18} | {s['si_snr']:<18} | {s['auroc']:<18} | "
-                  f"{s['eer']:<18} | {s['latency_mean']:.2f}ms")
+                  f"{eer_str:<18} | {s['latency_mean']:.2f}ms")
         print("=" * 140)
 
 

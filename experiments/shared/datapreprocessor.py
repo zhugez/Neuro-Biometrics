@@ -97,6 +97,13 @@ class Config:
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
     optimize_h100: bool = False
 
+    # Evaluation protocol
+    #   'standard'      -> subject-disjoint 10/3/3 split (legacy run_evaluation_suite)
+    #   'openset_16_4'  -> train on ALL 16 known subjects, reject 4 holdout subjects
+    eval_protocol: str = "standard"
+    openset_val_frac: float = 0.15  # per-subject window fraction held out for val
+    early_stop_metric: str = "p1"   # 'p1' | 'val_loss' (Stage-2 early stopping)
+
     @property
     def n_channels(self) -> int:
         return len(self.electrodes)

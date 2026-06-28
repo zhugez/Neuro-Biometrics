@@ -268,6 +268,8 @@ class BimodalTrainer(TwoStageTrainer):
                 f"weights/best_v4_bimodal_{metrics.noise_type}_{metrics.model_name}"
                 f"_seed{seed}.pth"
             )
+            if getattr(self.config, "eval_protocol", "standard") == "openset_16_4":
+                weight_path = weight_path.replace(".pth", "_openset16_4.pth")
             checkpoint = {
                 "model_state_dict": best_state,
                 "config": {k: v for k, v in self.config.__dict__.items()

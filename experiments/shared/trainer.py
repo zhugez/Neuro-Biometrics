@@ -274,7 +274,9 @@ class TwoStageTrainer:
         scaler = torch.amp.GradScaler("cuda", enabled=(use_amp and amp_dtype == torch.float16))
 
         best_p1, best_state, best_accuracy, patience_cnt = 0.0, None, 0.0, 0
+        best_monitor = -float("inf")
         early_stop_delta = TRAINING_CONFIG["early_stop_delta"]
+        early_stop_metric = getattr(self.config, "early_stop_metric", "p1")
 
         for ep in range(1, self.config.epochs + 1):
             start = time.time()
@@ -327,7 +329,17 @@ class TwoStageTrainer:
                   f"| Acc: {val_accuracy:.4f} | Best: {max(best_p1, val_p1):.4f} "
                   f"| LR: {scheduler.get_last_lr()[0]:.2e} | {elapsed:.1f}s")
 
-            if val_p1 > best_p1 + early_stop_delta:
+            # Early-stop monitor: P@1 (higher is better) by default; in open-set
+            # mode val P@1 saturates (within-class window overlap), so val loss
+            # is preferred — negated so "higher is better" comparison still holds.
+            if early_stop_metric == "val_loss":
+                val_loss_value = self._eval_val_loss(model, val_dl, metric_loss, miner)
+                monitor = -val_loss_value
+            else:
+                monitor = val_p1
+
+            if monitor > best_monitor + early_stop_delta:
+                best_monitor = monitor
                 best_p1, best_accuracy, patience_cnt = val_p1, val_accuracy, 0
                 best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
             else:
@@ -346,6 +358,8 @@ class TwoStageTrainer:
             else:
                 version_tag = "v1"
             weight_path = f"weights/best_{version_tag}_{metrics.noise_type}_{metrics.model_name}_seed{seed}.pth"
+            if getattr(self.config, "eval_protocol", "standard") == "openset_16_4":
+                weight_path = weight_path.replace(".pth", "_openset16_4.pth")
             checkpoint = {
                 "model_state_dict": best_state,
                 "config": {k: v for k, v in self.config.__dict__.items()
@@ -574,7 +588,11 @@ class TwoStageTrainer:
             "cmc": cmc.tolist(),
             "roc": {"fpr": fpr.tolist(), "tpr": tpr.tolist()},
             "det": {"fpr": fpr_det.tolist(), "fnr": fnr_det.tolist()},
-            "eer": eer, "latency": latency_ms, "params": params,
+            # ``eer`` is the closed-set pairwise-cosine EER. ``closed_set_eer``
+            # is an explicit alias so the open-set aggregation can avoid the
+            # category error of reporting it under the bare ``eer`` key.
+            "eer": eer, "closed_set_eer": eer,
+            "latency": latency_ms, "params": params,
             "robustness": robustness,
         }
 
@@ -602,8 +620,14 @@ class TwoStageTrainer:
 
     @torch.no_grad()
     def evaluate_novelty_comprehensive(self, model, known_dl, unknown_noisy,
-                                       centroids, threshold) -> Dict:
-        """Evaluate novelty detection with AUROC/AUPR."""
+                                       centroids, threshold, y_unk_arr=None) -> Dict:
+        """Evaluate novelty detection with AUROC/AUPR.
+
+        ``known_dl``      : enrolled-subject probes (label 0, expected small dist).
+        ``unknown_noisy`` : holdout-subject windows as a raw tensor (label 1).
+        ``y_unk_arr``     : optional per-window raw subject IDs aligned with
+                            ``unknown_noisy`` (enables per-subject AUROC).
+        """
         model.to(self.device).eval()
         centroids = centroids.to(self.device)
 
@@ -632,8 +656,73 @@ class TwoStageTrainer:
         tar = sum(d < threshold for d in known_dists) / known_total if known_total else 0
         trr = sum(d >= threshold for d in unknown_dists) / unknown_total if unknown_total else 0
 
-        return {
+        kd = np.asarray(known_dists, dtype=float)
+        ud = np.asarray(unknown_dists, dtype=float)
+
+        # Open-set EER: error rate at the FAR==FRR crossing over a threshold sweep.
+        #   FAR(t) = fraction of UNKNOWN accepted (dist < t)
+        #   FRR(t) = fraction of KNOWN rejected   (dist >= t)
+        open_set_eer = 0.5
+        if known_total and unknown_total:
+            all_d = np.concatenate([kd, ud])
+            ts = np.linspace(all_d.min(), all_d.max(), 1000)
+            fars = np.array([(ud < t).mean() for t in ts])
+            frrs = np.array([(kd >= t).mean() for t in ts])
+            idx = int(np.argmin(np.abs(fars - frrs)))
+            open_set_eer = float((fars[idx] + frrs[idx]) / 2.0)
+
+        # TAR at fixed FAR operating points (accept if dist < t; t set so FAR≈target).
+        def _tar_at_far(target_far: float) -> float:
+            if not known_total or not unknown_total:
+                return 0.0
+            t = float(np.quantile(ud, target_far))
+            return float((kd < t).mean())
+
+        # AUPR random-classifier baseline for this class ratio.
+        aupr_random_baseline = (
+            unknown_total / (known_total + unknown_total)
+            if (known_total + unknown_total) else 0.0
+        )
+
+        result = {
             "tar": tar, "trr": trr, "far": 1 - trr, "frr": 1 - tar,
             "auroc": auroc, "aupr": aupr, "threshold": threshold,
+            "open_set_eer": open_set_eer,
+            "tar_at_far_0_01": _tar_at_far(0.01),
+            "tar_at_far_0_001": _tar_at_far(0.001),
+            "aupr_random_baseline": aupr_random_baseline,
             "known_samples": known_total, "unknown_samples": unknown_total,
         }
+
+        # Per-holdout-subject AUROC (honest holdout-sensitivity estimate).
+        if y_unk_arr is not None and known_total and unknown_total:
+            y_unk = np.asarray(y_unk_arr)
+            per_subject_auroc = {}
+            for s in np.unique(y_unk):
+                sd = ud[y_unk == s]
+                if len(sd) == 0:
+                    continue
+                yt = [0] * known_total + [1] * len(sd)
+                ys = known_dists + sd.tolist()
+                per_subject_auroc[int(s)] = float(roc_auc_score(yt, ys))
+            result["per_subject_auroc"] = per_subject_auroc
+
+        return result
+
+    @torch.no_grad()
+    def _eval_val_loss(self, model, val_dl, metric_loss, miner=None) -> float:
+        """Mean metric-learning loss over the val set (early-stop signal for
+        open-set mode, where val P@1 saturates due to within-class overlap)."""
+        model.eval()
+        total, n = 0.0, 0
+        for noisy, _, y in val_dl:
+            noisy, y = noisy.to(self.device), y.to(self.device)
+            _, emb = model(noisy)
+            if miner is not None:
+                pairs = miner(emb, y)
+                loss = metric_loss(emb, y, pairs)
+            else:
+                loss = metric_loss(emb, y)
+            total += float(loss.item()) * y.size(0)
+            n += y.size(0)
+        return total / max(n, 1)
